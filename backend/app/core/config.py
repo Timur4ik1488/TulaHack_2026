@@ -1,8 +1,6 @@
-from pathlib import Path
-import os
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Literal
 
 
 class Settings(BaseSettings):
@@ -14,27 +12,26 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    APP_NAME: str = "TulaHack 2026 best site of DevOps community"
+    APP_NAME: str = "HackRank API"
     DEBUG: bool = False
 
-
     SECRET_KEY: str = ""
-    DOCS_USER: str = ""
-    DOCS_PASSWORD: str = ""
-
-    SESSION_COOKIE_NAME: str = "session_token"
-    SESSION_EXPIRE_SECONDS: int = 60 * 60
-
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_DAYS: int = 7
 
     COOKIE_HTTPONLY: bool = True
-    COOKIE_SECURE: bool = False  # True только при HTTPS
-    COOKIE_SAMESITE: Literal['lax', 'strict', 'none'] = "lax"
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
+    COOKIE_PATH: str = "/"
 
-    # Dev bootstrap
+    ACCESS_COOKIE_NAME: str = "access_token"
+    REFRESH_COOKIE_NAME: str = "refresh_token"
+
+    # Запятые в .env: http://localhost:5173,http://127.0.0.1:5173
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+
     BOOTSTRAP_ADMIN: bool = True
     BOOTSTRAP_ADMIN_EMAIL: str = "admin@example.com"
     BOOTSTRAP_ADMIN_PASSWORD: str = "admin"
@@ -42,17 +39,23 @@ class Settings(BaseSettings):
     DATABASE_URL: str | None = None
     POSTGRES_USER: str = ""
     POSTGRES_PASSWORD: str = ""
-    POSTGRES_HOST: str = ""  # имя сервиса из docker-compose
+    POSTGRES_HOST: str = ""
     POSTGRES_PORT: str = ""
     POSTGRES_DB: str = ""
-    
 
     @property
     def get_db_url(self) -> str:
         if self.DATABASE_URL:
             return self.DATABASE_URL
-        else:
-            return (f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
-        
+        return (
+            "postgresql+asyncpg://"
+            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
 
 settings = Settings()

@@ -54,8 +54,9 @@ services:
       - ./backend/app/static:/app/static
     env_file:
       - .env
+    # Внутри сети compose Postgres всегда на порту 5432; 5434 — только проброс на хост.
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
       db:
         condition: service_healthy
