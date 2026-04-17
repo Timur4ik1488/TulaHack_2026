@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -22,10 +24,10 @@ from app.scoring import leaderboard_totals, team_total_percent
 router = APIRouter(tags=["scores"])
 
 
-def _rank_rows(rows: list[dict]) -> list[TeamRatingRead]:
-    out: list[TeamRatingRead] = []
+def _rank_rows(rows: List[Dict[str, Any]]) -> List[TeamRatingRead]:
+    out: List[TeamRatingRead] = []
     rank = 0
-    prev: float | None = None
+    prev: Optional[float] = None
     for i, row in enumerate(rows):
         pct = row["total_percent"]
         if prev is None or pct != prev:
@@ -42,12 +44,12 @@ def _rank_rows(rows: list[dict]) -> list[TeamRatingRead]:
     return out
 
 
-@router.post("/", dependencies=[Depends(is_user_expert)])
+@router.post("/")
 async def upsert_score(
     payload: ScoreCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(is_user_expert),
     db: AsyncSession = Depends(get_async_db),
-) -> dict:
+) -> Dict[str, Any]:
     cr = await db.get(Criterion, payload.criterion_id)
     if not cr:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Criterion not found")
@@ -78,12 +80,12 @@ async def upsert_score(
     return {"ok": True}
 
 
-@router.post("/{team_id}/submit", dependencies=[Depends(is_user_expert)])
+@router.post("/{team_id}/submit")
 async def submit_scores(
     team_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(is_user_expert),
     db: AsyncSession = Depends(get_async_db),
-) -> dict:
+) -> Dict[str, Any]:
     team = await db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
@@ -103,18 +105,19 @@ async def submit_scores(
     return {"ok": True, "total_percent": pct}
 
 
-@router.get("/rating", response_model=list[TeamRatingRead])
-@router.get("/leaderboard", response_model=list[TeamRatingRead])
-async def get_rating(db: AsyncSession = Depends(get_async_db)) -> list[TeamRatingRead]:
+@router.get("/rating", response_model=List[TeamRatingRead])
+@router.get("/leaderboard", response_model=List[TeamRatingRead])
+async def get_rating(db: AsyncSession = Depends(get_async_db)) -> List[TeamRatingRead]:
+    """Публично: таблица результатов для гостей и всех."""
     rows = await leaderboard_totals(db)
     return _rank_rows(rows)
 
 
-@router.get("/podium", response_model=list[TeamRatingRead])
+@router.get("/podium", response_model=List[TeamRatingRead])
 async def get_podium(
     limit: int = Query(default=3, ge=1, le=50),
     db: AsyncSession = Depends(get_async_db),
-) -> list[TeamRatingRead]:
+) -> List[TeamRatingRead]:
     rows = await leaderboard_totals(db)
     ranked = _rank_rows(rows)
     return ranked[:limit]
@@ -124,6 +127,7 @@ async def get_podium(
 async def team_score_breakdown(
     team_id: int,
     db: AsyncSession = Depends(get_async_db),
+    _: User = Depends(get_current_user),
 ) -> TeamScoreBreakdownRead:
     team = await db.get(Team, team_id)
     if not team:
@@ -143,7 +147,7 @@ async def team_score_breakdown(
         .order_by(Criterion.id)
     )
     result = await db.execute(stmt)
-    criteria: list[TeamScoreCriterionBreakdown] = []
+    criteria: List[TeamScoreCriterionBreakdown] = []
     total = 0.0
     for row in result:
         cid, name, weight, max_s, avg_v = row
@@ -172,12 +176,12 @@ async def team_score_breakdown(
     )
 
 
-@router.get("/mine", response_model=list[ExpertScoreSheetRead], dependencies=[Depends(is_user_expert)])
+@router.get("/mine", response_model=List[ExpertScoreSheetRead])
 async def my_scores(
-    team_id: int | None = Query(default=None, description="Фильтр по команде"),
-    current_user: User = Depends(get_current_user),
+    team_id: Optional[int] = Query(default=None, description="Фильтр по команде"),
+    current_user: User = Depends(is_user_expert),
     db: AsyncSession = Depends(get_async_db),
-) -> list[ExpertScoreSheetRead]:
+) -> List[ExpertScoreSheetRead]:
     q = (
         select(
             Score.team_id,

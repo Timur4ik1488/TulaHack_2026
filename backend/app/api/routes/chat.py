@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,8 +39,12 @@ async def create_message(
     return message
 
 
-@router.get("/{team_id}", response_model=list[MessageRead])
-async def list_messages(team_id: int, db: AsyncSession = Depends(get_async_db)) -> list[Message]:
+@router.get("/{team_id}", response_model=List[MessageRead])
+async def list_messages(
+    team_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    _: User = Depends(get_current_user),
+) -> List[Message]:
     result = await db.execute(
         select(Message).where(Message.team_id == team_id).order_by(Message.created_at.asc())
     )

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Dict
 
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
@@ -27,7 +27,7 @@ def _get_secret_key() -> str:
     return secret_key
 
 
-def create_access_token(data: dict[str, Any]) -> str:
+def create_access_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.now(tz=timezone.utc) + timedelta(
         minutes=settings.JWT_ACCESS_EXPIRE_MINUTES
@@ -36,14 +36,14 @@ def create_access_token(data: dict[str, Any]) -> str:
     return jwt.encode(to_encode, _get_secret_key(), algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(data: dict[str, Any]) -> str:
+def create_refresh_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.now(tz=timezone.utc) + timedelta(days=settings.JWT_REFRESH_DAYS)
     to_encode.update({"exp": expire, "type": TOKEN_TYPE_REFRESH})
     return jwt.encode(to_encode, _get_secret_key(), algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_token(some_token: str) -> dict[str, Any]:
+def decode_token(some_token: str) -> Dict[str, Any]:
     try:
         return jwt.decode(
             some_token,

@@ -6,7 +6,7 @@
 Если по критерию ещё нет финальных оценок, критерий не входит в сумму.
 """
 
-from __future__ import annotations
+from typing import Any, Dict, List
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,7 +46,7 @@ async def team_total_percent(session: AsyncSession, team_id: int) -> float:
     return round(float(row or 0.0), 2)
 
 
-async def leaderboard_totals(session: AsyncSession) -> list[dict]:
+async def leaderboard_totals(session: AsyncSession) -> List[Dict[str, Any]]:
     """Список команд с total_percent, отсортированный по убыванию балла."""
     sc = _avg_scores_subquery()
     score_expr = func.coalesce(
@@ -68,7 +68,7 @@ async def leaderboard_totals(session: AsyncSession) -> list[dict]:
         .order_by(score_expr.desc(), Team.id)
     )
     result = await session.execute(query)
-    rows = [dict(row._mapping) for row in result]
+    rows: List[Dict[str, Any]] = [dict(row._mapping) for row in result]
     for r in rows:
         r["total_percent"] = round(float(r["total_percent"]), 2)
     return rows

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -5,16 +7,27 @@ class TeamCreate(BaseModel):
     name: str
     members: str
     contact: str
-    description: str | None = None
-    case_number: int | None = None
+    description: Optional[str] = None
+    case_number: Optional[int] = None
 
 
 class TeamUpdate(BaseModel):
-    name: str | None = None
-    members: str | None = None
-    contact: str | None = None
-    description: str | None = None
-    case_number: int | None = None
+    name: Optional[str] = None
+    members: Optional[str] = None
+    contact: Optional[str] = None
+    description: Optional[str] = None
+    case_number: Optional[int] = None
+
+
+class TeamPublicRead(BaseModel):
+    """Команда для гостей и публичного каталога (без контактов и состава)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    case_number: Optional[int] = None
 
 
 class TeamRead(TeamCreate):

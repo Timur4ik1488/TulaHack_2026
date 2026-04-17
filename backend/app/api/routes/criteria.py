@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +18,7 @@ from app.schemas.criterion import (
 router = APIRouter(tags=["criteria"])
 
 
-async def _sum_weights_excluding(db: AsyncSession, exclude_id: int | None) -> float:
+async def _sum_weights_excluding(db: AsyncSession, exclude_id: Optional[int]) -> float:
     stmt = select(func.coalesce(func.sum(Criterion.weight), 0.0))
     if exclude_id is not None:
         stmt = stmt.where(Criterion.id != exclude_id)
@@ -24,11 +26,19 @@ async def _sum_weights_excluding(db: AsyncSession, exclude_id: int | None) -> fl
     return float(r.scalar_one())
 
 
-@router.get("/weights-summary", response_model=CriteriaWeightsSummary)
-async def criteria_weights_summary(db: AsyncSession = Depends(get_async_db)) -> CriteriaWeightsSummary:
+@router.get(
+    "/weights-summary",
+    response_model=CriteriaWeightsSummary,
+    dependencies=[Depends(is_user_admin)],
+)
+async def criteria_weights_summary(
+    db: AsyncSession = Depends(get_async_db),
+) -> CriteriaWeightsSummary:
     total = await _sum_weights_excluding(db, None)
     ok = abs(total - 100.0) < 0.02
-    return CriteriaWeightsSummary(total_weight_percent=round(total, 2), weights_sum_ok=ok)
+    return CriteriaWeightsSummary(
+        total_weight_percent=round(total, 2), weights_sum_ok=ok
+    )
 
 
 @router.post("/", response_model=CriterionRead, dependencies=[Depends(is_user_admin)])
@@ -54,8 +64,9 @@ async def create_criterion(
     return criterion
 
 
-@router.get("/", response_model=list[CriterionRead])
-async def list_criteria(db: AsyncSession = Depends(get_async_db)) -> list[Criterion]:
+@router.get("/", response_model=List[CriterionRead])
+async def list_criteria(db: AsyncSession = Depends(get_async_db)) -> List[Criterion]:
+    """Публично: правила оценки (название, вес %, max балл)."""
     result = await db.execute(select(Criterion).order_by(Criterion.id))
     return list(result.scalars().all())
 
@@ -98,10 +109,14 @@ async def update_criterion(
 
     if "name" in data:
         dup = await db.execute(
-            select(Criterion).where(Criterion.name == data["name"], Criterion.id != criterion_id)
+            select(Criterion).where(
+                Criterion.name == data["name"], Criterion.id != criterion_id
+            )
         )
         if dup.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Criterion name exists")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Criterion name exists"
+            )
 
     for k, v in data.items():
         setattr(c, k, v)

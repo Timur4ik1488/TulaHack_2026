@@ -1,4 +1,5 @@
 import uuid
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
@@ -27,7 +28,7 @@ router = APIRouter(tags=["auth"])
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     access_max_age = settings.JWT_ACCESS_EXPIRE_MINUTES * 60
     refresh_max_age = settings.JWT_REFRESH_DAYS * 24 * 60 * 60
-    cookie_kwargs = {
+    cookie_kwargs: Dict[str, Any] = {
         "httponly": settings.COOKIE_HTTPONLY,
         "secure": settings.COOKIE_SECURE,
         "samesite": settings.COOKIE_SAMESITE,
@@ -70,7 +71,6 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_asyn
     if result_u.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username exists")
 
-    # Публичная регистрация — только участник; роли expert/admin выдаёт админ.
     user = User(
         email=payload.email,
         username=payload.username,
@@ -86,7 +86,7 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_asyn
 @router.post("/login")
 async def login_user(
     payload: UserLogin, response: Response, db: AsyncSession = Depends(get_async_db)
-) -> dict:
+) -> Dict[str, Any]:
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(payload.password, user.hashed_password):
@@ -111,8 +111,8 @@ async def login_user(
 async def refresh_tokens(
     response: Response,
     db: AsyncSession = Depends(get_async_db),
-    refresh_token: str | None = Depends(get_refresh_token_from_cookie_or_header),
-) -> dict:
+    refresh_token: Optional[str] = Depends(get_refresh_token_from_cookie_or_header),
+) -> Dict[str, Any]:
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -156,7 +156,7 @@ async def refresh_tokens(
 
 
 @router.post("/logout")
-async def logout_user(response: Response) -> dict:
+async def logout_user(response: Response) -> Dict[str, Any]:
     _clear_auth_cookies(response)
     return {"ok": True}
 
