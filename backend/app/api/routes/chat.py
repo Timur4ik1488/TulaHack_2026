@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import assert_team_participant_or_jury, get_current_user
 from app.core.socket import sio
 from app.db.db import get_async_db
 from app.models.message import Message
@@ -20,6 +20,7 @@ async def create_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> Message:
+    await assert_team_participant_or_jury(db, current_user, payload.team_id)
     message = Message(team_id=payload.team_id, author_id=current_user.id, text=payload.text)
     db.add(message)
     await db.commit()
@@ -43,8 +44,9 @@ async def create_message(
 async def list_messages(
     team_id: int,
     db: AsyncSession = Depends(get_async_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> List[Message]:
+    await assert_team_participant_or_jury(db, current_user, team_id)
     result = await db.execute(
         select(Message).where(Message.team_id == team_id).order_by(Message.created_at.asc())
     )

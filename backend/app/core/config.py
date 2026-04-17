@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    APP_NAME: str = "HackRank API"
+    APP_NAME: str = "HackSwipe API"
     DEBUG: bool = False
 
     SECRET_KEY: str = ""
@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     REFRESH_COOKIE_NAME: str = "refresh_token"
 
     # Запятые в .env: http://localhost:5173,http://127.0.0.1:5173
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:4173,http://127.0.0.1:4173"
+    )
 
     BOOTSTRAP_ADMIN: bool = True
     BOOTSTRAP_ADMIN_EMAIL: str = "admin@example.com"
@@ -43,8 +46,17 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = ""
     POSTGRES_DB: str = ""
 
+    # Только для локального запуска без Docker (в проде не используйте).
+    USE_SQLITE: bool = False
+    SQLITE_DB_PATH: str = "hackrank.db"
+
+    # Участников в одной команде (капитан + приглашённые).
+    MAX_TEAM_MEMBERS: int = 8
+
     @property
     def get_db_url(self) -> str:
+        if self.USE_SQLITE:
+            return f"sqlite+aiosqlite:///./{self.SQLITE_DB_PATH}"
         if self.DATABASE_URL:
             return self.DATABASE_URL
         return (

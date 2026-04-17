@@ -2,11 +2,13 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import TOKEN_TYPE_ACCESS, decode_token
 from app.core.config import settings
 from app.db.db import get_async_db
+from app.models.team_member import TeamMember
 from app.models.user import User, UserRole
 
 
@@ -91,3 +93,24 @@ async def is_user_expert(current_user: User = Depends(get_current_user)) -> User
             detail="Expert access required",
         )
     return current_user
+
+
+async def assert_team_participant_or_jury(
+    db: AsyncSession,
+    user: User,
+    team_id: int,
+) -> None:
+    """Жюри/админ или участник этой команды."""
+    if user.role in {UserRole.ADMIN, UserRole.EXPERT}:
+        return
+    res = await db.execute(
+        select(TeamMember).where(
+            TeamMember.user_id == user.id,
+            TeamMember.team_id == team_id,
+        )
+    )
+    if res.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет доступа к этой команде",
+        )

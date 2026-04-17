@@ -1,14 +1,35 @@
 import uuid
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.models.user import UserRole
 
 
+class NewTeamPayload(BaseModel):
+    """Создать команду при регистрации (пользователь станет капитаном)."""
+
+    name: str = Field(..., min_length=2, max_length=255)
+    contact: str = Field(..., min_length=3, max_length=255)
+    description: str | None = None
+    repo_url: str | None = None
+    roster_line: str | None = Field(
+        None,
+        description="Строка состава для README (например «@you + @mate»)",
+    )
+
+
 class UserCreate(BaseModel):
     email: EmailStr
-    username: str
-    password: str
+    username: str = Field(..., min_length=2, max_length=255)
+    password: str = Field(..., min_length=4, max_length=128)
+    invite_code: str | None = Field(None, max_length=16, description="Код приглашения в существующую команду")
+    new_team: NewTeamPayload | None = None
+
+    @model_validator(mode="after")
+    def _team_xor(self) -> "UserCreate":
+        if self.invite_code and self.new_team:
+            raise ValueError("Укажите только invite_code или только new_team")
+        return self
 
 
 class UserRoleUpdate(BaseModel):

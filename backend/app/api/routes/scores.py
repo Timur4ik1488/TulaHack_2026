@@ -2,10 +2,9 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select, update
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, is_user_expert
+from app.api.deps import assert_team_participant_or_jury, get_current_user, is_user_expert
 from app.core.socket import sio
 from app.db.db import get_async_db
 from app.models.criterion import Criterion
@@ -64,18 +63,28 @@ async def upsert_score(
             detail=f"Score must be between 0 and {cr.max_score}",
         )
 
-    stmt = insert(Score).values(
-        expert_id=current_user.id,
-        team_id=payload.team_id,
-        criterion_id=payload.criterion_id,
-        value=payload.value,
-        is_final=False,
+    # Универсальный upsert (SQLite не всегда корректно обрабатывает insert.on_conflict).
+    q = await db.execute(
+        select(Score).where(
+            Score.expert_id == current_user.id,
+            Score.team_id == payload.team_id,
+            Score.criterion_id == payload.criterion_id,
+        )
     )
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["expert_id", "team_id", "criterion_id"],
-        set_={"value": payload.value, "is_final": False},
-    )
-    await db.execute(stmt)
+    row = q.scalar_one_or_none()
+    if row:
+        row.value = payload.value
+        row.is_final = False
+    else:
+        db.add(
+            Score(
+                expert_id=current_user.id,
+                team_id=payload.team_id,
+                criterion_id=payload.criterion_id,
+                value=payload.value,
+                is_final=False,
+            )
+        )
     await db.commit()
     return {"ok": True}
 
@@ -127,11 +136,12 @@ async def get_podium(
 async def team_score_breakdown(
     team_id: int,
     db: AsyncSession = Depends(get_async_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> TeamScoreBreakdownRead:
     team = await db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+    await assert_team_participant_or_jury(db, current_user, team_id)
 
     stmt = (
         select(

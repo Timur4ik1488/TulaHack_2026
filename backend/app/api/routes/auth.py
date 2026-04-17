@@ -2,7 +2,8 @@ import uuid
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -18,7 +19,10 @@ from app.core.auth import (
     verify_password,
 )
 from app.core.config import settings
+from app.core.team_invite import generate_unique_invite_code
 from app.db.db import get_async_db
+from app.models.team import Team
+from app.models.team_member import TeamMember, TeamMemberRole
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserLogin, UserRead
 
@@ -62,7 +66,11 @@ def _clear_auth_cookies(response: Response) -> None:
 
 
 @router.post("/register", response_model=UserRead)
-async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_async_db)) -> User:
+async def register_user(
+    payload: UserCreate,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db),
+) -> User:
     result = await db.execute(select(User).where(User.email == payload.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email exists")
@@ -71,6 +79,9 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_asyn
     if result_u.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username exists")
 
+    invite_raw = (payload.invite_code or "").strip()
+    invite = invite_raw or None
+
     user = User(
         email=payload.email,
         username=payload.username,
@@ -78,8 +89,74 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_asyn
         role=UserRole.PARTICIPANT,
     )
     db.add(user)
-    await db.commit()
+
+    try:
+        await db.flush()
+
+        if payload.new_team:
+            exists = await db.execute(select(Team).where(Team.name == payload.new_team.name))
+            if exists.scalar_one_or_none():
+                await db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Команда с таким названием уже есть",
+                )
+            code = await generate_unique_invite_code(db)
+            team = Team(
+                name=payload.new_team.name,
+                contact=payload.new_team.contact,
+                description=payload.new_team.description,
+                members=payload.new_team.roster_line or "",
+                invite_code=code,
+                repo_url=payload.new_team.repo_url,
+            )
+            db.add(team)
+            await db.flush()
+            db.add(
+                TeamMember(
+                    team_id=team.id,
+                    user_id=user.id,
+                    role=TeamMemberRole.CAPTAIN,
+                )
+            )
+        elif invite:
+            team_row = await db.execute(select(Team).where(Team.invite_code == invite))
+            team = team_row.scalar_one_or_none()
+            if not team:
+                await db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Неверный код приглашения",
+                )
+            cnt = await db.execute(
+                select(func.count()).select_from(TeamMember).where(TeamMember.team_id == team.id)
+            )
+            if int(cnt.scalar_one() or 0) >= settings.MAX_TEAM_MEMBERS:
+                await db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Команда заполнена",
+                )
+            db.add(
+                TeamMember(
+                    team_id=team.id,
+                    user_id=user.id,
+                    role=TeamMemberRole.MEMBER,
+                )
+            )
+
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Конфликт данных (почта, ник или членство в команде)",
+        ) from None
+
     await db.refresh(user)
+    access = create_access_token({"sub": str(user.id)})
+    refresh = create_refresh_token({"sub": str(user.id)})
+    _set_auth_cookies(response, access, refresh)
     return user
 
 

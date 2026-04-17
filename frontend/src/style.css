@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@plugin "daisyui";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+  }
+  body {
+    @apply font-sans text-slate-100;
+  }
+}
+
+.hs-grid-bg {
+  background-color: #0a0a0f;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.hs-glow-merge {
+  box-shadow:
+    0 0 60px -12px rgba(52, 211, 153, 0.35),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.hs-glow-skip {
+  box-shadow:
+    0 0 60px -12px rgba(251, 113, 133, 0.35),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}

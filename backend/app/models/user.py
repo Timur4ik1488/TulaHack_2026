@@ -1,8 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Enum as SAEnum, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Enum as SAEnum, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -18,7 +17,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     username: Mapped[str] = mapped_column(String(255), unique=True)
@@ -28,6 +27,7 @@ class User(Base):
             UserRole,
             name="userrole",
             values_callable=lambda obj: [e.value for e in obj],
+            native_enum=False,
         ),
         default=UserRole.PARTICIPANT,
         nullable=False,
@@ -37,3 +37,4 @@ class User(Base):
 
     scores: Mapped[list["Score"]] = relationship(back_populates="expert")
     messages: Mapped[list["Message"]] = relationship(back_populates="author")
+    team_memberships: Mapped[list["TeamMember"]] = relationship(back_populates="user")
