@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '../api/http'
 import { useAuthStore } from '../stores/auth'
 import { onUserAvatarError, userAvatarSrc } from '../composables/useTeamPhotoFallback'
 
+interface ExpertCaseBrief {
+  case_id: number
+  ordinal: number
+  title: string
+  company_name: string
+}
+
 interface Staff {
   user_id: string
   username: string
   avatar_url: string | null
+  assigned_cases: ExpertCaseBrief[]
 }
 
 interface CaseRow {
@@ -35,6 +43,7 @@ const loading = ref(true)
 const draftIntro = ref('')
 const saving = ref(false)
 const saveMsg = ref('')
+const expertModal = ref<Staff | null>(null)
 
 const isAdmin = computed(() => auth.role === 'admin')
 
@@ -48,7 +57,17 @@ async function load() {
   data.value = null
   try {
     const { data: d } = await api.get<AboutPayload>('/api/hackathon/about')
-    data.value = d
+    data.value = {
+      ...d,
+      experts: (d.experts ?? []).map((x) => ({
+        ...x,
+        assigned_cases: x.assigned_cases ?? [],
+      })),
+      admins: (d.admins ?? []).map((x) => ({
+        ...x,
+        assigned_cases: x.assigned_cases ?? [],
+      })),
+    }
     draftIntro.value = d.intro ?? ''
   } catch {
     err.value = 'Не удалось загрузить страницу'
@@ -65,7 +84,11 @@ async function saveIntro() {
     const { data: d } = await api.patch<AboutPayload>('/api/hackathon/about', {
       intro: draftIntro.value,
     })
-    data.value = d
+    data.value = {
+      ...d,
+      experts: (d.experts ?? []).map((x) => ({ ...x, assigned_cases: x.assigned_cases ?? [] })),
+      admins: (d.admins ?? []).map((x) => ({ ...x, assigned_cases: x.assigned_cases ?? [] })),
+    }
     draftIntro.value = d.intro ?? ''
     saveMsg.value = 'Сохранено'
   } catch {
@@ -80,16 +103,54 @@ function resetDraft() {
   saveMsg.value = ''
 }
 
+function openExpertModal(e: Staff) {
+  expertModal.value = e
+}
+
+function closeExpertModal() {
+  expertModal.value = null
+}
+
+function onExpertKeydown(ev: KeyboardEvent, e: Staff) {
+  if (ev.key === 'Enter' || ev.key === ' ') {
+    ev.preventDefault()
+    openExpertModal(e)
+  }
+}
+
+function onGlobalKeydown(ev: KeyboardEvent) {
+  if (ev.key === 'Escape') closeExpertModal()
+}
+
+watch(expertModal, (v) => {
+  if (typeof document === 'undefined') return
+  if (v) {
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', onGlobalKeydown)
+  } else {
+    document.body.style.overflow = ''
+    document.removeEventListener('keydown', onGlobalKeydown)
+  }
+})
+
 onMounted(load)
+
+onUnmounted(() => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+    document.removeEventListener('keydown', onGlobalKeydown)
+  }
+})
 </script>
 
 <template>
   <div class="mx-auto max-w-5xl space-y-10 px-1 sm:px-0">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// площадка</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">площадка · vibe check</p>
       <h1 class="text-3xl font-bold tracking-tight text-slate-100">О хакатоне</h1>
       <p class="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-        Кратко о формате, людях и кейсах. Доступно всем гостям и участникам.
+        Один заход: что за формат, кто держит треки и жюри, какие кейсы в эфире — без занудства, зато с контекстом
+        для гостей и команды.
       </p>
     </div>
 
@@ -146,11 +207,18 @@ onMounted(load)
 
       <section class="overflow-hidden rounded-2xl border border-violet-500/25 bg-slate-900/50 p-6 shadow-xl backdrop-blur-sm">
         <h2 class="mb-4 font-mono text-xs uppercase tracking-wider text-violet-300/90">Эксперты жюри</h2>
+        <p class="mb-3 text-xs text-slate-500">
+          Нажми карточку — откроется мини-профиль: ник, аватар и кейсы, за которые отвечает эксперт.
+        </p>
         <ul v-if="data.experts.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <li
             v-for="e in data.experts"
             :key="e.user_id"
-            class="flex items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-3 py-3"
+            role="button"
+            tabindex="0"
+            class="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-3 py-3 outline-none transition hover:border-violet-400/40 hover:bg-violet-500/10 focus-visible:ring-2 focus-visible:ring-violet-400/50"
+            @click="openExpertModal(e)"
+            @keydown="onExpertKeydown($event, e)"
           >
             <img
               :src="staffPhoto(e)"
@@ -158,10 +226,11 @@ onMounted(load)
               class="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-violet-500/30"
               @error="onUserAvatarError"
             />
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1 text-left">
               <p class="truncate font-medium text-slate-100">@{{ e.username }}</p>
-              <p class="font-mono text-[10px] text-violet-300/80">эксперт</p>
+              <p class="font-mono text-[10px] text-violet-300/80">жюри · профиль по клику</p>
             </div>
+            <span class="shrink-0 font-mono text-[10px] text-slate-500">→</span>
           </li>
         </ul>
         <p v-else class="font-mono text-sm text-slate-600">Список экспертов пуст.</p>
@@ -225,6 +294,65 @@ onMounted(load)
           Лидерборд
         </RouterLink>
       </div>
+
+      <Teleport to="body">
+        <div
+          v-if="expertModal"
+          class="fixed inset-0 z-[200] flex items-end justify-center bg-black/70 p-4 pb-8 backdrop-blur-sm sm:items-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Профиль эксперта"
+          @click.self="closeExpertModal"
+        >
+          <div
+            class="relative w-full max-w-md overflow-hidden rounded-3xl border border-violet-500/30 bg-slate-950 shadow-2xl shadow-violet-900/40"
+            @click.stop
+          >
+            <button
+              type="button"
+              class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/50 font-mono text-lg text-slate-300 transition hover:bg-white/10"
+              aria-label="Закрыть"
+              @click="closeExpertModal"
+            >
+              ×
+            </button>
+            <div class="border-b border-white/10 bg-gradient-to-r from-violet-600/25 via-slate-900 to-cyan-600/20 px-6 pb-10 pt-6">
+              <div class="flex items-start gap-4">
+                <img
+                  :src="staffPhoto(expertModal)"
+                  :alt="expertModal.username"
+                  class="h-20 w-20 shrink-0 rounded-2xl object-cover ring-2 ring-violet-400/40"
+                  @error="onUserAvatarError"
+                />
+                <div class="min-w-0 pt-1">
+                  <p class="font-mono text-[10px] uppercase tracking-wider text-violet-300/90">ник на площадке</p>
+                  <p class="truncate text-xl font-bold text-white">@{{ expertModal.username }}</p>
+                  <p class="mt-1 font-mono text-[11px] text-slate-400">эксперт жюри · HackSwipe</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3 px-6 py-5">
+              <p class="font-mono text-[10px] uppercase tracking-wider text-slate-500">кейсы эксперта</p>
+              <ul v-if="expertModal.assigned_cases?.length" class="space-y-2">
+                <li
+                  v-for="c in expertModal.assigned_cases"
+                  :key="c.case_id"
+                  class="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 transition hover:border-cyan-500/35"
+                >
+                  <RouterLink :to="`/cases/${c.case_id}`" class="block" @click="closeExpertModal">
+                    <p class="font-mono text-[10px] text-amber-300/90">№{{ c.ordinal }} · {{ c.company_name }}</p>
+                    <p class="mt-0.5 font-medium text-slate-100">{{ c.title }}</p>
+                    <p class="mt-1 font-mono text-[10px] text-cyan-400/80">страница кейса →</p>
+                  </RouterLink>
+                </li>
+              </ul>
+              <p v-else class="rounded-xl border border-dashed border-white/15 bg-black/20 px-3 py-3 text-sm text-slate-500">
+                Пока не закреплён ни за одним кейсом — уточни у админа, если ожидаешь назначение.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Teleport>
     </template>
   </div>
 </template>

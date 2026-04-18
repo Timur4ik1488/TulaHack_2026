@@ -20,6 +20,23 @@ from app.models.team import Team
 from app.models.user import User
 
 
+def _case_lookup_merged(cases: Iterable[ProjectCase]) -> dict[int, ProjectCase]:
+    """Ordinal и id кейса — в teams.case_number могли хранить любое из двух."""
+    m: dict[int, ProjectCase] = {}
+    for c in cases:
+        m[int(c.ordinal)] = c
+        m[int(c.id)] = c
+    return m
+
+
+def _team_solution_link(team: Team) -> str:
+    """В интерфейсе «решение» = solution_submission_url; repo_url — запасной/регистрация."""
+    sub = (team.solution_submission_url or "").strip()
+    if sub:
+        return sub
+    return (team.repo_url or "").strip()
+
+
 def _safe_filename_part(title: str, max_len: int = 48) -> str:
     t = re.sub(r"[^\w\s\-]", "", title, flags=re.UNICODE)
     t = re.sub(r"\s+", "_", t.strip())
@@ -27,38 +44,41 @@ def _safe_filename_part(title: str, max_len: int = 48) -> str:
     return t[:max_len]
 
 
-def case_for_team(team: Team, ordinal_to_case: dict[int, ProjectCase]) -> ProjectCase | None:
+def case_for_team(team: Team, case_by_key: dict[int, ProjectCase]) -> ProjectCase | None:
     if team.case_assignment and team.case_assignment.case:
         return team.case_assignment.case
     if team.case_number is None:
         return None
-    return ordinal_to_case.get(int(team.case_number))
+    return case_by_key.get(int(team.case_number))
 
 
-def teams_for_case(case: ProjectCase, all_teams: Iterable[Team], ordinal_to_case: dict[int, ProjectCase]) -> list[Team]:
+def teams_for_case(case: ProjectCase, all_teams: Iterable[Team], case_by_key: dict[int, ProjectCase]) -> list[Team]:
     out: list[Team] = []
     for t in all_teams:
-        c = case_for_team(t, ordinal_to_case)
+        c = case_for_team(t, case_by_key)
         if c is not None and c.id == case.id:
             out.append(t)
     return sorted(out, key=lambda x: x.id)
 
 
-def unassigned_teams(all_teams: Iterable[Team], ordinal_to_case: dict[int, ProjectCase]) -> list[Team]:
-    return sorted([t for t in all_teams if case_for_team(t, ordinal_to_case) is None], key=lambda x: x.id)
+def unassigned_teams(all_teams: Iterable[Team], case_by_key: dict[int, ProjectCase]) -> list[Team]:
+    return sorted([t for t in all_teams if case_for_team(t, case_by_key) is None], key=lambda x: x.id)
 
 
 def _write_workbook(
     teams: list[Team],
     case_experts: list[ProjectCaseExpert],
     score_rows: list[tuple],
+    case_by_key: dict[int, ProjectCase],
 ) -> bytes:
     wb = Workbook()
     ws_t = wb.active
     ws_t.title = "Teams"
     ws_t.append(["team_id", "name", "case_number", "repo_url"])
     for t in teams:
-        ws_t.append([t.id, t.name, t.case_number, t.repo_url or ""])
+        rc = case_for_team(t, case_by_key)
+        case_ord = rc.ordinal if rc else None
+        ws_t.append([t.id, t.name, case_ord, _team_solution_link(t)])
 
     ws_e = wb.create_sheet("CaseExperts")
     ws_e.append(["user_id", "username", "email"])
@@ -139,7 +159,7 @@ async def build_jury_zip_bytes(db: AsyncSession) -> tuple[bytes, str]:
         .scalars()
         .all()
     )
-    ordinal_to_case = {c.ordinal: c for c in cases}
+    case_by_key = _case_lookup_merged(cases)
 
     all_teams = (
         (await db.execute(select(Team).options(selectinload(Team.case_assignment).selectinload(ProjectCaseTeam.case))))
@@ -151,18 +171,18 @@ async def build_jury_zip_bytes(db: AsyncSession) -> tuple[bytes, str]:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for case in cases:
-            teams = teams_for_case(case, all_teams, ordinal_to_case)
+            teams = teams_for_case(case, all_teams, case_by_key)
             team_ids = [t.id for t in teams]
             score_rows = await _fetch_score_rows(db, team_ids)
-            xlsx = _write_workbook(teams, list(case.experts), score_rows)
+            xlsx = _write_workbook(teams, list(case.experts), score_rows, case_by_key)
             fname = f"case_{case.ordinal}_{_safe_filename_part(case.title)}.xlsx"
             zf.writestr(fname, xlsx)
 
-        loose = unassigned_teams(all_teams, ordinal_to_case)
+        loose = unassigned_teams(all_teams, case_by_key)
         if loose:
             team_ids = [t.id for t in loose]
             score_rows = await _fetch_score_rows(db, team_ids)
-            xlsx = _write_workbook(loose, [], score_rows)
+            xlsx = _write_workbook(loose, [], score_rows, case_by_key)
             zf.writestr("case_unassigned.xlsx", xlsx)
 
     zip_buf.seek(0)

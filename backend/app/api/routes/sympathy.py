@@ -33,7 +33,7 @@ async def cast_sympathy_vote(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ) -> SympathyVoteRead:
-) -> SympathyVoteRead:
+    
     if payload.value not in (-1, 1):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="value must be -1 or 1")
     team = await db.get(Team, payload.team_id)
@@ -54,10 +54,10 @@ async def cast_sympathy_vote(
         set_={"value": payload.value},
     ).returning(tbl.c.team_id, tbl.c.dimension, tbl.c.value)
     row = (await db.execute(stmt)).one()
+    team_id_r, dimension_r, value_r = row[0], row[1], row[2]
     await db.commit()
-    await db.refresh(row)
-    # Сериализуем до expire_all: иначе ORM-атрибуты тянут lazy-IO вне greenlet (ResponseValidationError).
-    out = SympathyVoteRead(team_id=row.team_id, dimension=row.dimension, value=row.value)
+    dim = SympathyDimension(dimension_r) if not isinstance(dimension_r, SympathyDimension) else dimension_r
+    out = SympathyVoteRead(team_id=int(team_id_r), dimension=dim, value=int(value_r))
     db.expire_all()
     rows = await leaderboard_totals(db)
     for r in rows:

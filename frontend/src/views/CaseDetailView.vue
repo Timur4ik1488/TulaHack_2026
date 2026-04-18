@@ -213,7 +213,7 @@ watch(caseId, async () => {
       <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
         <select
           v-model.number="pickTeamId"
-          class="hs-select select select-bordered flex-1 border-white/15 py-3 font-mono text-sm text-slate-100"
+          class="hs-select select select-bordered flex-1 min-h-[3rem] border-white/15 py-2.5 font-mono text-sm leading-normal text-slate-100"
         >
           <option :value="0" disabled>Выберите команду</option>
           <option v-for="x in teamsAll" :key="x.id" :value="x.id">{{ x.name }}</option>

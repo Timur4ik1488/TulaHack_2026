@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.case import CaseRead
+from app.schemas.case import CaseRead, ExpertCaseCardBrief
 
 
 class StaffPublicBrief(BaseModel):
@@ -13,6 +13,7 @@ class StaffPublicBrief(BaseModel):
     user_id: uuid.UUID
     username: str
     avatar_url: Optional[str] = None
+    assigned_cases: List[ExpertCaseCardBrief] = Field(default_factory=list)
 
 
 class HackathonAboutIntroPatch(BaseModel):

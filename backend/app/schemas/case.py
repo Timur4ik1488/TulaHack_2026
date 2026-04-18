@@ -39,6 +39,15 @@ class CaseTeamBrief(BaseModel):
     team_name: str
 
 
+class ExpertCaseCardBrief(BaseModel):
+    """Кейс, закреплённый за экспертом (публичная карточка /about и профиль)."""
+
+    case_id: int
+    ordinal: int
+    title: str
+    company_name: str
+
+
 class CaseRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

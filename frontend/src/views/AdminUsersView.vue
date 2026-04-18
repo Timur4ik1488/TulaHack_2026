@@ -165,7 +165,7 @@ onMounted(load)
           <label class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">роль</label>
           <select
             v-model="createRole"
-            class="select select-bordered w-full border-white/10 bg-black/35 font-mono text-sm text-slate-100"
+            class="hs-select select select-bordered w-full min-h-[3rem] border-white/15 bg-slate-900/95 py-2.5 font-mono text-sm leading-normal text-slate-100"
           >
             <option value="expert">Жюри (expert)</option>
             <option value="participant">Участник</option>

@@ -5,13 +5,29 @@ import { api } from '../api/http'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 import { apiErrorMessage } from '../utils/apiErrorMessage'
 
+interface TeamCaseCardBrief {
+  case_id: number
+  ordinal: number
+  title: string
+  company_name: string
+  description: string | null
+}
+
+interface TeamMemberBrief {
+  username: string
+  role: string
+}
+
 interface Team {
   id: number
   name: string
-  members: string
-  contact: string
+  contact?: string
   description: string | null
   case_number: number | null
+  case_ordinal?: number | null
+  case_card?: TeamCaseCardBrief | null
+  /** Состав с API (`/api/teams/`, поле `members`) — аккаунты, не текстовое поле формы. */
+  members?: TeamMemberBrief[]
   photo_url: string | null
   repo_url?: string | null
   solution_submission_url?: string | null
@@ -43,12 +59,29 @@ const formMsg = ref('')
 const casesSorted = computed(() => [...cases.value].sort((a, b) => a.ordinal - b.ordinal))
 
 function caseForTeam(t: Team): CaseRow | null {
+  if (t.case_card) {
+    const k = t.case_card
+    return {
+      id: k.case_id,
+      ordinal: k.ordinal,
+      title: k.title,
+      description: k.description,
+      company_name: k.company_name,
+    }
+  }
+  const ord = t.case_ordinal
+  if (ord != null) {
+    const hit = cases.value.find((c) => c.ordinal === ord)
+    if (hit) return hit
+  }
   if (t.case_number == null) return null
   const n = t.case_number
-  return (
-    cases.value.find((c) => c.ordinal === n || c.id === n) ??
-    null
-  )
+  return cases.value.find((c) => c.ordinal === n || c.id === n) ?? null
+}
+
+/** Номер кейса для бейджа: только если кейс реально найден. */
+function displayCaseOrdinal(t: Team): number | null {
+  return t.case_card?.ordinal ?? t.case_ordinal ?? null
 }
 
 async function load() {
@@ -167,7 +200,7 @@ onMounted(load)
           <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">кейс</span>
           <select
             v-model="form.caseOrdinal"
-            class="hs-select input w-full border-white/15 bg-slate-900/95 py-3 font-sans text-sm text-slate-100 focus:border-amber-500/40"
+            class="hs-select input w-full min-h-[3rem] border-white/15 bg-slate-900/95 py-2.5 pr-10 font-mono text-sm leading-normal text-slate-100 focus:border-amber-500/40"
           >
             <option value="">Без кейса</option>
             <option v-for="c in casesSorted" :key="c.id" :value="String(c.ordinal)">
@@ -221,11 +254,13 @@ onMounted(load)
               <div class="min-w-0">
                 <p class="font-mono text-[10px] text-slate-600">#{{ t.id }}</p>
                 <h3 class="truncate text-lg font-semibold text-slate-100">{{ t.name }}</h3>
-                <p v-if="t.case_number != null" class="mt-1 font-mono text-xs text-amber-200/90">кейс №{{ t.case_number }}</p>
+                <p v-if="displayCaseOrdinal(t) != null" class="mt-1 font-mono text-xs text-amber-200/90">
+                  кейс №{{ displayCaseOrdinal(t) }}
+                </p>
                 <p class="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-400">
                   {{ t.description || '— без описания —' }}
                 </p>
-                <p class="mt-2 truncate font-mono text-[10px] text-slate-500">контакт: {{ t.contact }}</p>
+                <p class="mt-2 truncate font-mono text-[10px] text-slate-500">контакт: {{ t.contact ?? '—' }}</p>
                 <a
                   v-if="t.repo_url"
                   :href="t.repo_url"

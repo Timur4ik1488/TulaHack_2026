@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, is_user_admin
 from app.core.auth import hash_password
 from app.db.db import get_async_db
+from app.models.project_case import ProjectCase, ProjectCaseExpert
 from app.models.user import User, UserRole
-from app.schemas.user import UserAdminCreate, UserRead, UserRoleUpdate
+from app.schemas.case import ExpertCaseCardBrief
+from app.schemas.user import ExpertCasesForMeRead, UserAdminCreate, UserRead, UserRoleUpdate
 
 router = APIRouter(tags=["users"])
 
@@ -93,6 +95,32 @@ async def upload_my_avatar(
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+
+@router.get("/me/expert-cases", response_model=ExpertCasesForMeRead)
+async def my_expert_cases(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+) -> ExpertCasesForMeRead:
+    if current_user.role != UserRole.EXPERT:
+        return ExpertCasesForMeRead(cases=[])
+    stmt = (
+        select(ProjectCase)
+        .join(ProjectCaseExpert, ProjectCaseExpert.case_id == ProjectCase.id)
+        .where(ProjectCaseExpert.user_id == current_user.id)
+        .order_by(ProjectCase.ordinal.asc())
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    cases = [
+        ExpertCaseCardBrief(
+            case_id=r.id,
+            ordinal=r.ordinal,
+            title=r.title,
+            company_name=r.company_name,
+        )
+        for r in rows
+    ]
+    return ExpertCasesForMeRead(cases=cases)
 
 
 @router.post("/{user_id}/avatar", response_model=UserRead)

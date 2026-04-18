@@ -1,8 +1,10 @@
 import uuid
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.models.user import UserRole
+from app.schemas.case import ExpertCaseCardBrief
 
 
 class NewTeamPayload(BaseModel):
@@ -63,3 +65,7 @@ class UserRead(BaseModel):
     is_active: bool
     is_blocked: bool
     avatar_url: str | None = None
+
+
+class ExpertCasesForMeRead(BaseModel):
+    cases: List[ExpertCaseCardBrief] = Field(default_factory=list)

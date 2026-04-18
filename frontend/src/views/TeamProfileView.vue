@@ -49,6 +49,15 @@ const avatarMsg = ref('')
 const inviteCopied = ref(false)
 let inviteCopyTimer: ReturnType<typeof setTimeout> | null = null
 
+interface ExpertCaseCard {
+  case_id: number
+  ordinal: number
+  title: string
+  company_name: string
+}
+
+const expertCases = ref<ExpertCaseCard[]>([])
+
 const isStaff = computed(() => auth.role === 'admin' || auth.role === 'expert')
 const isParticipant = computed(() => auth.role === 'participant')
 
@@ -71,6 +80,16 @@ async function openTelegramBind() {
     window.open(data.url, '_blank', 'noopener,noreferrer')
   } catch {
     photoMsg.value = 'Не удалось получить ссылку на бота (войдите заново?)'
+  }
+}
+
+async function loadExpertCases() {
+  if (auth.role !== 'expert') return
+  try {
+    const { data } = await api.get<{ cases: ExpertCaseCard[] }>('/api/users/me/expert-cases')
+    expertCases.value = data.cases ?? []
+  } catch {
+    expertCases.value = []
   }
 }
 
@@ -241,11 +260,17 @@ async function joinByInvite() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (isParticipant.value) {
     void load()
     void pollSubmissionWindow()
     timerPoll = setInterval(pollSubmissionWindow, 10000)
+  }
+  if (!auth.user) {
+    await auth.fetchMe()
+  }
+  if (auth.role === 'expert') {
+    await loadExpertCases()
   }
 })
 
@@ -298,6 +323,30 @@ onUnmounted(() => {
           >
             {{ accountRoleLabel(auth.user.role) }}
           </span>
+
+          <div
+            v-if="auth.user.role === 'expert'"
+            class="mt-5 rounded-2xl border border-cyan-500/25 bg-black/30 px-4 py-4"
+          >
+            <p class="font-mono text-[10px] uppercase tracking-wider text-cyan-400/90">кейсы жюри</p>
+            <ul v-if="expertCases.length" class="mt-3 space-y-2">
+              <li
+                v-for="c in expertCases"
+                :key="c.case_id"
+                class="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 transition hover:border-cyan-500/35"
+              >
+                <RouterLink :to="`/cases/${c.case_id}`" class="block">
+                  <p class="font-mono text-[10px] text-amber-300/90">№{{ c.ordinal }} · {{ c.company_name }}</p>
+                  <p class="mt-0.5 text-sm font-medium text-slate-100">{{ c.title }}</p>
+                  <p class="mt-1 font-mono text-[10px] text-cyan-400/80">карточка кейса →</p>
+                </RouterLink>
+              </li>
+            </ul>
+            <p v-else class="mt-2 text-xs leading-relaxed text-slate-500">
+              Пока не назначен ни на один кейс — напиши админу, чтобы закрепили в админке кейса.
+            </p>
+          </div>
+
           <div class="mt-4">
             <p class="font-mono text-[10px] uppercase tracking-wider text-slate-500">аватар</p>
             <input

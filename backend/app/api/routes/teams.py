@@ -43,11 +43,13 @@ ALLOWED_PHOTO_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": 
 MAX_PHOTO_BYTES = 2 * 1024 * 1024
 
 
-def _case_ordinal_for_team(team: Team) -> int | None:
+def _case_ordinal_for_team(team: Team, case_lookup: dict[int, ProjectCase]) -> int | None:
     if team.case_assignment and team.case_assignment.case:
         return team.case_assignment.case.ordinal
     if team.case_number is not None:
-        return team.case_number
+        oc = case_lookup.get(team.case_number)
+        if oc:
+            return oc.ordinal
     return None
 
 
@@ -84,21 +86,26 @@ def _team_public_card(team: Team, cases_by_ordinal: dict[int, ProjectCase]) -> T
             case_card = _case_brief_from_model(oc)
     return TeamPublicCardRead(
         **base.model_dump(),
-        case_ordinal=_case_ordinal_for_team(team),
+        case_ordinal=_case_ordinal_for_team(team, cases_by_ordinal),
         members=members_out,
         case_card=case_card,
     )
 
 
 async def _cases_by_ordinal_for_teams(db: AsyncSession, teams: List[Team]) -> dict[int, ProjectCase]:
+    """Ключ — и ordinal, и id кейса: в teams.case_number могли сохранять любое из двух."""
     need: set[int] = set()
     for t in teams:
         if (not t.case_assignment or not t.case_assignment.case) and t.case_number is not None:
             need.add(t.case_number)
     if not need:
         return {}
-    res = await db.execute(select(ProjectCase).where(ProjectCase.ordinal.in_(need)))
-    return {c.ordinal: c for c in res.scalars().all()}
+    res = await db.execute(select(ProjectCase).where(or_(ProjectCase.ordinal.in_(need), ProjectCase.id.in_(need))))
+    merged: dict[int, ProjectCase] = {}
+    for c in res.scalars().all():
+        merged[c.ordinal] = c
+        merged[c.id] = c
+    return merged
 
 
 def _static_dir() -> Path:
