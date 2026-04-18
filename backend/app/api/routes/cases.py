@@ -14,6 +14,7 @@ from app.models.user import User, UserRole
 from app.schemas.case import (
     CaseCreate,
     CaseDetailRead,
+    CaseExpertBrief,
     CaseExpertIds,
     CaseRead,
     CaseTeamAssign,
@@ -29,7 +30,7 @@ async def _load_case(db: AsyncSession, case_id: int) -> ProjectCase | None:
         select(ProjectCase)
         .where(ProjectCase.id == case_id)
         .options(
-            selectinload(ProjectCase.experts),
+            selectinload(ProjectCase.experts).selectinload(ProjectCaseExpert.user),
             selectinload(ProjectCase.teams).selectinload(ProjectCaseTeam.team),
         )
     )
@@ -51,7 +52,12 @@ async def _assert_expert_on_case(db: AsyncSession, user_id: uuid.UUID, case_id: 
 
 
 def _detail_from_case(c: ProjectCase) -> CaseDetailRead:
-    experts = [e.user_id for e in (c.experts or [])]
+    experts_out: list[CaseExpertBrief] = []
+    expert_ids: list[uuid.UUID] = []
+    for e in c.experts or []:
+        expert_ids.append(e.user_id)
+        uname = e.user.username if e.user else ""
+        experts_out.append(CaseExpertBrief(user_id=e.user_id, username=uname))
     teams = [
         CaseTeamBrief(team_id=t.team_id, team_name=t.team.name if t.team else "")
         for t in (c.teams or [])
@@ -64,7 +70,8 @@ def _detail_from_case(c: ProjectCase) -> CaseDetailRead:
         description=c.description,
         company_name=c.company_name,
         created_at=c.created_at,
-        expert_user_ids=experts,
+        experts=experts_out,
+        expert_user_ids=expert_ids,
         teams=teams,
     )
 
@@ -167,6 +174,7 @@ async def assign_team_to_case(
         raise HTTPException(status_code=409, detail="Команда уже закреплена за кейсом")
 
     db.add(ProjectCaseTeam(case_id=case_id, team_id=payload.team_id))
+    team.case_number = c.ordinal
     await db.commit()
     c2 = await _load_case(db, case_id)
     assert c2
@@ -190,12 +198,15 @@ async def remove_team_from_case(
     else:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
+    team_row = await db.get(Team, team_id)
     await db.execute(
         delete(ProjectCaseTeam).where(
             ProjectCaseTeam.case_id == case_id,
             ProjectCaseTeam.team_id == team_id,
         )
     )
+    if team_row:
+        team_row.case_number = None
     await db.commit()
     c2 = await _load_case(db, case_id)
     assert c2

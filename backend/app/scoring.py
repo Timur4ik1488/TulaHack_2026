@@ -1,4 +1,4 @@
-"""Расчёт итогов: жюри по весам критериев + нормализованные зрительские симпатии (до SYMPATHY_LEADERBOARD_WEIGHT п.п.)."""
+"""Расчёт итогов: жюри по весам критериев + зрительские симпатии (линейно: SYMPATHY_PERCENT_PER_VOTE на единицу суммы голосов)."""
 
 from typing import Any, Dict, List
 
@@ -66,29 +66,17 @@ async def _sympathy_sum_by_team(session: AsyncSession) -> Dict[int, float]:
     return {int(tid): float(total or 0.0) for tid, total in result.all()}
 
 
-def _sympathy_bonus_map(sympathy_by_team: Dict[int, float]) -> Dict[int, float]:
-    if not sympathy_by_team:
-        return {}
-    vals = list(sympathy_by_team.values())
-    mn = min(vals)
-    mx = max(vals)
-    w = float(settings.SYMPATHY_LEADERBOARD_WEIGHT)
-    if mx == mn:
-        return {tid: 0.0 for tid in sympathy_by_team}
-    out: Dict[int, float] = {}
-    for tid, s in sympathy_by_team.items():
-        norm = (float(s) - mn) / (mx - mn)
-        out[tid] = round(norm * w, 4)
-    return out
+def _sympathy_bonus_percent_for_vote_sum(vote_sum: float) -> float:
+    """Бонус в п.п.: сумма голосов (+1/−1) × SYMPATHY_PERCENT_PER_VOTE."""
+    return round(float(vote_sum) * float(settings.SYMPATHY_PERCENT_PER_VOTE), 4)
 
 
 async def team_total_percent(session: AsyncSession, team_id: int) -> float:
-    """Итог в % для лидерборда: жюри + бонус симпатий (макс. 100)."""
+    """Итог в % для лидерборда: жюри + бонус симпатий (макс. 100, мин. 0)."""
     jury = await jury_team_total_percent(session, team_id)
     sym_all = await _sympathy_sum_by_team(session)
-    bonus_map = _sympathy_bonus_map(sym_all)
-    bonus = bonus_map.get(team_id, 0.0)
-    return round(min(100.0, jury + bonus), 2)
+    bonus = _sympathy_bonus_percent_for_vote_sum(sym_all.get(team_id, 0.0))
+    return round(max(0.0, min(100.0, jury + bonus)), 2)
 
 
 async def leaderboard_totals(session: AsyncSession) -> List[Dict[str, Any]]:
@@ -117,15 +105,15 @@ async def leaderboard_totals(session: AsyncSession) -> List[Dict[str, Any]]:
         r["jury_percent"] = round(float(r["jury_percent"]), 2)
 
     sym = await _sympathy_sum_by_team(session)
-    bonus_map = _sympathy_bonus_map(sym)
 
     for r in rows:
         tid = int(r["team_id"])
-        raw = int(round(sym.get(tid, 0.0)))
+        s = float(sym.get(tid, 0.0))
+        raw = int(round(s))
         r["sympathy_votes_sum"] = raw
-        b = bonus_map.get(tid, 0.0)
-        r["sympathy_bonus_percent"] = round(float(b), 4)
-        r["total_percent"] = round(min(100.0, float(r["jury_percent"]) + b), 2)
+        b = _sympathy_bonus_percent_for_vote_sum(s)
+        r["sympathy_bonus_percent"] = b
+        r["total_percent"] = round(max(0.0, min(100.0, float(r["jury_percent"]) + b)), 2)
 
     rows.sort(key=lambda x: (-x["total_percent"], x["team_name"]))
     return rows

@@ -10,7 +10,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from socketio import ASGIApp
 from sqlalchemy import select
 
-from app.api.routes import auth, cases, chat, criteria, scores, sympathy, teams, timer, users, telegram as tg_routes
+from app.api.routes import auth, cases, chat, criteria, hackathon_about, scores, sympathy, teams, timer, users, telegram as tg_routes
 from app.core.auth import hash_password
 from app.core.hackathon_watch import timer_watch_loop
 from app.core.config import settings
@@ -79,6 +79,7 @@ fastapi_app.include_router(users.router, prefix="/api/users")
 fastapi_app.include_router(chat.router, prefix="/api/chat")
 fastapi_app.include_router(timer.router, prefix="/api/timer")
 fastapi_app.include_router(cases.router, prefix="/api/cases")
+fastapi_app.include_router(hackathon_about.router, prefix="/api/hackathon")
 fastapi_app.include_router(tg_routes.router, prefix="/api/telegram")
 
 Instrumentator(

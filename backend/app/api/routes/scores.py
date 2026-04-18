@@ -3,12 +3,14 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import assert_team_participant_or_jury, get_current_user, is_user_expert
 from app.core.socket import sio
 from app.db.db import get_async_db
 from app.models.criterion import Criterion
 from app.models.score import Score
+from app.models.project_case import ProjectCase, ProjectCaseTeam
 from app.models.team import Team
 from app.models.user import User
 from app.schemas.score import (
@@ -19,7 +21,7 @@ from app.schemas.score import (
     TeamScoreCriterionBreakdown,
 )
 from app.core.config import settings
-from app.scoring import _sympathy_sum_by_team, leaderboard_totals, team_total_percent
+from app.scoring import _sympathy_bonus_percent_for_vote_sum, _sympathy_sum_by_team, leaderboard_totals, team_total_percent
 
 router = APIRouter(tags=["scores"])
 
@@ -33,11 +35,17 @@ def _rank_rows(rows: List[Dict[str, Any]]) -> List[TeamRatingRead]:
         if prev is None or pct != prev:
             rank = i + 1
         prev = pct
+        co = row.get("case_ordinal")
+        cid = row.get("case_id")
+        ctitle = row.get("case_title")
         out.append(
             TeamRatingRead(
                 rank=rank,
                 team_id=row["team_id"],
                 team_name=row["team_name"],
+                case_ordinal=int(co) if co is not None else None,
+                case_id=int(cid) if cid is not None else None,
+                case_title=str(ctitle).strip() if ctitle is not None and str(ctitle).strip() else None,
                 jury_percent=float(row["jury_percent"]),
                 sympathy_bonus_percent=float(row.get("sympathy_bonus_percent", 0.0)),
                 sympathy_votes_sum=int(row.get("sympathy_votes_sum", 0)),
@@ -45,6 +53,60 @@ def _rank_rows(rows: List[Dict[str, Any]]) -> List[TeamRatingRead]:
             )
         )
     return out
+
+
+async def _attach_case_info(db: AsyncSession, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Для лидерборда: ordinal, id и название кейса (назначение или подбор по teams.case_number)."""
+    ids = [int(r["team_id"]) for r in rows]
+    if not ids:
+        return rows
+    stmt = (
+        select(Team)
+        .where(Team.id.in_(ids))
+        .options(selectinload(Team.case_assignment).selectinload(ProjectCaseTeam.case))
+    )
+    by_id = {t.id: t for t in (await db.execute(stmt)).scalars().all()}
+
+    need_ordinals: set[int] = set()
+    resolved: dict[int, tuple[int | None, int | None, str | None]] = {}
+
+    for tid in ids:
+        t = by_id.get(tid)
+        if not t:
+            resolved[tid] = (None, None, None)
+            continue
+        if t.case_assignment and t.case_assignment.case:
+            c = t.case_assignment.case
+            resolved[tid] = (c.id, c.ordinal, c.title)
+        elif t.case_number is not None:
+            need_ordinals.add(int(t.case_number))
+        else:
+            resolved[tid] = (None, None, None)
+
+    ord_to_case: dict[int, ProjectCase] = {}
+    if need_ordinals:
+        q = await db.execute(select(ProjectCase).where(ProjectCase.ordinal.in_(need_ordinals)))
+        ord_to_case = {c.ordinal: c for c in q.scalars().all()}
+
+    for tid in ids:
+        if tid in resolved:
+            continue
+        t = by_id.get(tid)
+        if t and t.case_number is not None:
+            oc = int(t.case_number)
+            c = ord_to_case.get(oc)
+            if c:
+                resolved[tid] = (c.id, c.ordinal, c.title)
+            else:
+                resolved[tid] = (None, oc, None)
+
+    for r in rows:
+        tid = int(r["team_id"])
+        cid, co, title = resolved.get(tid, (None, None, None))
+        r["case_id"] = cid
+        r["case_ordinal"] = co
+        r["case_title"] = title
+    return rows
 
 
 @router.post("/")
@@ -128,6 +190,7 @@ async def submit_scores(
 async def get_rating(db: AsyncSession = Depends(get_async_db)) -> List[TeamRatingRead]:
     """Публично: таблица результатов для гостей и всех."""
     rows = await leaderboard_totals(db)
+    rows = await _attach_case_info(db, rows)
     return _rank_rows(rows)
 
 
@@ -137,6 +200,7 @@ async def get_podium(
     db: AsyncSession = Depends(get_async_db),
 ) -> List[TeamRatingRead]:
     rows = await leaderboard_totals(db)
+    rows = await _attach_case_info(db, rows)
     ranked = _rank_rows(rows)
     return ranked[:limit]
 
@@ -188,10 +252,12 @@ async def team_score_breakdown(
         )
 
     jury = round(total, 2)
-    lb_total = await team_total_percent(db, team_id)
-    sym_bonus = round(lb_total - jury, 4)
     sym_by_team = await _sympathy_sum_by_team(db)
-    sym_votes = int(round(float(sym_by_team.get(team_id, 0.0))))
+    sym_sum = float(sym_by_team.get(team_id, 0.0))
+    sym_bonus = _sympathy_bonus_percent_for_vote_sum(sym_sum)
+    sym_votes = int(round(sym_sum))
+    lb_total = round(max(0.0, min(100.0, jury + sym_bonus)), 2)
+    sym_cap = max(float(settings.SYMPATHY_LEADERBOARD_WEIGHT), abs(sym_bonus), 0.01)
 
     return TeamScoreBreakdownRead(
         team_id=team.id,
@@ -199,7 +265,7 @@ async def team_score_breakdown(
         total_percent=jury,
         sympathy_bonus_percent=sym_bonus,
         sympathy_votes_sum=sym_votes,
-        sympathy_cap_percent=float(settings.SYMPATHY_LEADERBOARD_WEIGHT),
+        sympathy_cap_percent=sym_cap,
         leaderboard_total_percent=lb_total,
         criteria=criteria,
     )

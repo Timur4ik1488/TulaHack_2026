@@ -30,6 +30,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/about',
+      name: 'about-hackathon',
+      component: () => import('../views/AboutHackathonView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/cases',
       name: 'cases',
       component: () => import('../views/CasesListView.vue'),
@@ -115,9 +121,7 @@ const router = createRouter({
     },
     {
       path: '/admin/telegram-console',
-      name: 'admin-telegram-console',
-      component: () => import('../views/AdminTelegramConsoleView.vue'),
-      meta: { roles: ['admin'] },
+      redirect: '/admin',
     },
     {
       path: '/timer',

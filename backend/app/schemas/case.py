@@ -5,6 +5,13 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class CaseExpertBrief(BaseModel):
+    """Эксперт на кейсе (для отображения имён всем ролям)."""
+
+    user_id: uuid.UUID
+    username: str
+
+
 class CaseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
@@ -44,5 +51,6 @@ class CaseRead(BaseModel):
 
 
 class CaseDetailRead(CaseRead):
+    experts: List[CaseExpertBrief] = Field(default_factory=list)
     expert_user_ids: List[uuid.UUID] = Field(default_factory=list)
     teams: List[CaseTeamBrief] = Field(default_factory=list)

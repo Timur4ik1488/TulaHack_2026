@@ -1,14 +1,38 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Где лежит код: backend/app/core/config.py → корень backend = parents[2].
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _BACKEND_ROOT.parent
+
+
+def _resolved_env_files() -> tuple[str | Path, ...]:
+    """Фиксированные пути к .env, чтобы Alembic/uvicorn из любого cwd видели те же POSTGRES_*.
+
+    Раньше было env_file=".env" — тогда файл искался только относительно текущей директории.
+    При пустом POSTGRES_USER клиент PostgreSQL часто подставляет имя пользователя ОС (у вас lebed).
+    """
+    paths: list[Path] = []
+    repo_env = _REPO_ROOT / ".env"
+    backend_env = _BACKEND_ROOT / ".env"
+    if repo_env.is_file():
+        paths.append(repo_env)
+    if backend_env.is_file():
+        paths.append(backend_env)
+    if paths:
+        return tuple(paths)
+    return (".env",)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         title="Настройки проекта",
-        env_file=".env",
-        env_file_encoding="utf-8",
+        env_file=_resolved_env_files(),
+        # utf-8-sig снимает BOM в начале .env (иначе первая строка даёт ключ «\ufeffPOSTGRES_USER»).
+        env_file_encoding="utf-8-sig",
         extra="allow",
         case_sensitive=True,
     )
@@ -33,6 +57,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = (
         "http://localhost,http://127.0.0.1,"
         "http://localhost:80,http://127.0.0.1:80,"
+        "http://[::1],http://[::1]:80,http://[::1]:5173,"
         "http://localhost:5173,http://127.0.0.1:5173,"
         "http://localhost:4173,http://127.0.0.1:4173,"
         "http://localhost:8080,http://127.0.0.1:8080,"
@@ -56,7 +81,9 @@ class Settings(BaseSettings):
 
     MAX_TEAM_MEMBERS: int = 8
 
-    # Зрительские симпатии: до стольких процентных пунктов добавляются к итогу жюри (0–100).
+    # Зрительские симпатии: каждая единица суммы голосов (+1/−1) даёт столько п.п. к итогу жюри.
+    SYMPATHY_PERCENT_PER_VOTE: float = 0.5
+    # Масштаб для UI разбора (полоска «симпатии»): не влияет на формулу лидерборда.
     SYMPATHY_LEADERBOARD_WEIGHT: float = 5.0
 
     TELEGRAM_BOT_USERNAME: str = "HackSwipeBot"
@@ -89,6 +116,21 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def socketio_cors_allowed_origins(self) -> list[str] | str:
+        """Origin для Socket.IO handshake: CORS + PUBLIC_SITE_URL (часто отличает .env от списка CORS → 403)."""
+        merged: list[str] = []
+        seen: set[str] = set()
+        for o in self.cors_origin_list:
+            o = o.strip().rstrip("/")
+            if o and o not in seen:
+                seen.add(o)
+                merged.append(o)
+        pub = self.PUBLIC_SITE_URL.strip().rstrip("/")
+        if pub and pub not in seen:
+            merged.append(pub)
+        return merged if merged else "*"
 
 
 settings = Settings()

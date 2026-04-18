@@ -18,6 +18,7 @@ from app.core.timer_helpers import submission_window_open
 from app.core.team_invite import generate_unique_invite_code
 from app.db.db import get_async_db
 from app.models.message import Message
+from app.models.project_case import ProjectCase, ProjectCaseTeam
 from app.models.score import Score
 from app.models.team import Team
 from app.models.team_member import TeamMember, TeamMemberRole
@@ -27,7 +28,10 @@ from app.schemas.team import (
     MyTeamSummary,
     TeamBriefUpdate,
     TeamCreate,
+    TeamCaseCardBrief,
     TeamMemberOut,
+    TeamMemberPublicOut,
+    TeamPublicCardRead,
     TeamPublicRead,
     TeamRead,
     TeamUpdate,
@@ -37,6 +41,64 @@ router = APIRouter(tags=["teams"])
 
 ALLOWED_PHOTO_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 MAX_PHOTO_BYTES = 2 * 1024 * 1024
+
+
+def _case_ordinal_for_team(team: Team) -> int | None:
+    if team.case_assignment and team.case_assignment.case:
+        return team.case_assignment.case.ordinal
+    if team.case_number is not None:
+        return team.case_number
+    return None
+
+
+def _case_brief_from_model(c: ProjectCase) -> TeamCaseCardBrief:
+    d = c.description
+    if d and len(d) > 280:
+        d = d[:277] + "..."
+    return TeamCaseCardBrief(
+        case_id=c.id,
+        ordinal=c.ordinal,
+        title=c.title,
+        company_name=c.company_name,
+        description=d,
+    )
+
+
+def _team_public_card(team: Team, cases_by_ordinal: dict[int, ProjectCase]) -> TeamPublicCardRead:
+    base = TeamPublicRead.model_validate(team)
+    members_sorted = sorted(
+        team.team_members or [],
+        key=lambda m: (0 if m.role == TeamMemberRole.CAPTAIN else 1, m.id),
+    )
+    members_out = [
+        TeamMemberPublicOut(username=m.user.username, role=m.role.value)
+        for m in members_sorted
+        if m.user is not None
+    ]
+    case_card: TeamCaseCardBrief | None = None
+    if team.case_assignment and team.case_assignment.case:
+        case_card = _case_brief_from_model(team.case_assignment.case)
+    elif team.case_number is not None:
+        oc = cases_by_ordinal.get(team.case_number)
+        if oc:
+            case_card = _case_brief_from_model(oc)
+    return TeamPublicCardRead(
+        **base.model_dump(),
+        case_ordinal=_case_ordinal_for_team(team),
+        members=members_out,
+        case_card=case_card,
+    )
+
+
+async def _cases_by_ordinal_for_teams(db: AsyncSession, teams: List[Team]) -> dict[int, ProjectCase]:
+    need: set[int] = set()
+    for t in teams:
+        if (not t.case_assignment or not t.case_assignment.case) and t.case_number is not None:
+            need.add(t.case_number)
+    if not need:
+        return {}
+    res = await db.execute(select(ProjectCase).where(ProjectCase.ordinal.in_(need)))
+    return {c.ordinal: c for c in res.scalars().all()}
 
 
 def _static_dir() -> Path:
@@ -55,11 +117,20 @@ async def create_team(payload: TeamCreate, db: AsyncSession = Depends(get_async_
     return team
 
 
-@router.get("/", response_model=List[TeamPublicRead])
-async def list_teams(db: AsyncSession = Depends(get_async_db)) -> List[Team]:
-    """Гости и все пользователи: только публичные поля."""
-    result = await db.execute(select(Team).order_by(Team.id))
-    return list(result.scalars().all())
+@router.get("/", response_model=List[TeamPublicCardRead])
+async def list_teams(db: AsyncSession = Depends(get_async_db)) -> List[TeamPublicCardRead]:
+    """Гости и все пользователи: публичные поля + кейс и состав."""
+    stmt = (
+        select(Team)
+        .options(
+            selectinload(Team.team_members).selectinload(TeamMember.user),
+            selectinload(Team.case_assignment).selectinload(ProjectCaseTeam.case),
+        )
+        .order_by(Team.id)
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    by_ord = await _cases_by_ordinal_for_teams(db, rows)
+    return [_team_public_card(t, by_ord) for t in rows]
 
 
 @router.get("/my/summary", response_model=MyTeamSummary)
@@ -165,13 +236,22 @@ async def get_team_full(
     return team
 
 
-@router.get("/{team_id}", response_model=TeamPublicRead)
-async def get_team(team_id: int, db: AsyncSession = Depends(get_async_db)) -> Team:
-    """Публичная карточка команды (без контактов и состава)."""
-    team = await db.get(Team, team_id)
+@router.get("/{team_id}", response_model=TeamPublicCardRead)
+async def get_team(team_id: int, db: AsyncSession = Depends(get_async_db)) -> TeamPublicCardRead:
+    """Публичная карточка: без контактов, с кейсом и составом (имена + роль)."""
+    stmt = (
+        select(Team)
+        .where(Team.id == team_id)
+        .options(
+            selectinload(Team.team_members).selectinload(TeamMember.user),
+            selectinload(Team.case_assignment).selectinload(ProjectCaseTeam.case),
+        )
+    )
+    team = (await db.execute(stmt)).scalar_one_or_none()
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
-    return team
+    by_ord = await _cases_by_ordinal_for_teams(db, [team])
+    return _team_public_card(team, by_ord)
 
 
 @router.get("/{team_id}/members", response_model=List[TeamMemberOut])

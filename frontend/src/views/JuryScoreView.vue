@@ -12,13 +12,20 @@ interface Criterion {
   max_score: number
 }
 
+interface MemberRow {
+  username: string
+  role: string
+}
+
 interface TeamCard {
   id: number
   name: string
   description: string | null
   case_number: number | null
+  case_ordinal?: number | null
   photo_url: string | null
   repo_url: string | null
+  members?: MemberRow[]
 }
 
 const route = useRoute()
@@ -32,6 +39,13 @@ const teamErr = ref('')
 const sympathyTotal = ref<number | null>(null)
 
 const totalWeight = computed(() => criteria.value.reduce((s, c) => s + (c.weight || 0), 0))
+
+const caseLabel = computed(() => {
+  const t = team.value
+  if (!t) return null
+  const n = t.case_ordinal ?? t.case_number
+  return n != null ? n : null
+})
 
 async function loadTeam() {
   teamErr.value = ''
@@ -136,7 +150,12 @@ watch(teamId, loadAll)
         />
         <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
         <div class="absolute bottom-3 left-4 right-4 flex flex-wrap items-end justify-between gap-2">
-          <h2 class="font-mono text-xl font-bold text-white md:text-2xl">{{ team.name }}</h2>
+          <div>
+            <p v-if="caseLabel != null" class="mb-0.5 font-mono text-[10px] uppercase tracking-widest text-amber-300/90">
+              кейс №{{ caseLabel }}
+            </p>
+            <h2 class="font-mono text-xl font-bold text-white md:text-2xl">{{ team.name }}</h2>
+          </div>
           <span class="rounded-full border border-white/15 bg-black/40 px-2 py-0.5 font-mono text-[10px] text-slate-300">
             #{{ team.id }}
           </span>
@@ -144,6 +163,9 @@ watch(teamId, loadAll)
       </div>
       <div class="space-y-3 p-5">
         <p v-if="team.description" class="text-sm leading-relaxed text-slate-400">{{ team.description }}</p>
+        <p v-if="team.members?.length" class="font-mono text-[11px] text-slate-500">
+          {{ team.members.map((m) => '@' + m.username + (m.role === 'captain' ? ' (кап.)' : '')).join(' · ') }}
+        </p>
         <div class="flex flex-wrap items-center gap-2">
           <RouterLink
             :to="`/teams/${team.id}`"
@@ -169,7 +191,6 @@ watch(teamId, loadAll)
             <span class="ml-1 text-violet-100">{{ sympathyTotal > 0 ? '+' : '' }}{{ sympathyTotal }}</span>
           </span>
         </div>
-        <p v-if="team.case_number != null" class="font-mono text-[11px] text-slate-600">кейс №{{ team.case_number }}</p>
       </div>
     </section>
 

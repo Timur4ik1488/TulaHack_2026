@@ -46,7 +46,7 @@ services:
       dockerfile: Dockerfile
     container_name: tule_backend
     restart: unless-stopped
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       # Код в контейнере: /app/app/... — статика монтируется туда же, иначе загрузки не попадают на хост.
       - ./backend/app/static:/app/app/static

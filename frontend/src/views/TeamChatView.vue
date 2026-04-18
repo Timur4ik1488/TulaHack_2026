@@ -19,6 +19,7 @@ interface Message {
 const messages = ref<Message[]>([])
 const text = ref('')
 const sendErr = ref('')
+const sending = ref(false)
 
 const auth = useAuthStore()
 const { teamId, err, teamsList, resolving, resolve, selectTeam, isStaff } = useResolvedTeamId({
@@ -43,13 +44,18 @@ async function loadMessages() {
 }
 
 async function send() {
-  if (!text.value.trim() || !Number.isFinite(teamIdNum.value)) return
+  if (sending.value || !text.value.trim() || !Number.isFinite(teamIdNum.value)) return
+  const body = text.value.trim()
+  sending.value = true
+  sendErr.value = ''
   try {
-    await api.post('/api/chat/', { team_id: teamIdNum.value, text: text.value.trim() })
+    await api.post('/api/chat/', { team_id: teamIdNum.value, text: body })
     text.value = ''
     await loadMessages()
   } catch {
     sendErr.value = 'Не удалось отправить сообщение.'
+  } finally {
+    sending.value = false
   }
 }
 
@@ -210,10 +216,11 @@ function rolePillClass(label: string, mine: boolean) {
             />
             <button
               type="button"
-              class="btn join-item border-0 bg-gradient-to-r from-rose-500 to-amber-500 font-mono text-xs text-white hover:opacity-95"
+              class="btn join-item border-0 bg-gradient-to-r from-rose-500 to-amber-500 font-mono text-xs text-white hover:opacity-95 disabled:opacity-50"
+              :disabled="sending || !text.trim()"
               @click="send"
             >
-              Отправить
+              {{ sending ? '…' : 'Отправить' }}
             </button>
           </div>
         </div>

@@ -41,10 +41,15 @@ function formatSympathyVotes(n: number) {
   return n > 0 ? `+${n}` : String(n)
 }
 
+function formatSympathyBonusLine(p: number) {
+  const sign = p > 0 ? '+' : p < 0 ? '−' : ''
+  return `${sign}${Math.abs(p).toFixed(2)}%`
+}
+
 function sympathyBarPercent(d: Breakdown) {
   const cap = d.sympathy_cap_percent || 0.001
   const b = d.sympathy_bonus_percent || 0
-  return Math.min(100, Math.max(0, (100 * b) / cap))
+  return Math.min(100, Math.max(0, (100 * Math.abs(b)) / cap))
 }
 
 async function load() {
@@ -142,7 +147,7 @@ watch(teamIdNum, async () => {
             Жюри (критерии):
             <span class="font-mono text-rose-200/90">{{ data.total_percent.toFixed(2) }}%</span>
             · Симпатии:
-            <span class="font-mono text-violet-200/90">+{{ (data.sympathy_bonus_percent ?? 0).toFixed(2) }}%</span>
+            <span class="font-mono text-violet-200/90">{{ formatSympathyBonusLine(data.sympathy_bonus_percent ?? 0) }}</span>
             <span v-if="(data.sympathy_votes_sum ?? 0) !== 0" class="text-slate-500">
               (голосов {{ formatSympathyVotes(data.sympathy_votes_sum ?? 0) }})
             </span>
@@ -157,11 +162,11 @@ watch(teamIdNum, async () => {
           <div>
             <p class="font-medium text-violet-100">Зрительские симпатии</p>
             <p class="mt-0.5 font-mono text-xs text-slate-500">
-              не жюри · до {{ (data.sympathy_cap_percent ?? 0).toFixed(1) }} п.п. к итогу лидерборда
+              не жюри · 1 к сумме голосов = 0,5 п.п. к итогу лидерборда
             </p>
           </div>
           <div class="text-right">
-            <p class="font-mono text-sm text-violet-200">+{{ (data.sympathy_bonus_percent ?? 0).toFixed(2) }}%</p>
+            <p class="font-mono text-sm text-violet-200">{{ formatSympathyBonusLine(data.sympathy_bonus_percent ?? 0) }}</p>
             <p class="font-mono text-xs text-slate-500">сумма голосов {{ formatSympathyVotes(data.sympathy_votes_sum ?? 0) }}</p>
           </div>
         </div>

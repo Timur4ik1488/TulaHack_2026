@@ -126,6 +126,13 @@ async def handle_updates(client: httpx.AsyncClient, offset: int | None) -> int |
     if offset is not None:
         params["offset"] = offset
     r = await client.get(tg_url("getUpdates"), params=params, timeout=60.0)
+    if r.status_code == 409:
+        # Два процесса с одним токеном (long polling) или активен webhook — остановите лишний экземпляр.
+        log.warning(
+            "getUpdates 409 Conflict: второй polling/webhook с этим токеном. "
+            "Оставьте один контейнер бота или выполните deleteWebhook."
+        )
+        raise RuntimeError("telegram_get_updates_409")
     r.raise_for_status()
     data = r.json()
     if not data.get("ok"):
@@ -228,15 +235,19 @@ async def maybe_notify_timer(client: httpx.AsyncClient) -> None:
 async def main_loop() -> None:
     offset: int | None = None
     async with httpx.AsyncClient() as client:
-        await tg_post(client, "deleteWebhook", {"drop_pending_updates": False})
+        await tg_post(client, "deleteWebhook", {"drop_pending_updates": True})
         log.info("HackSwipeBot started, API_BASE=%s", API_BASE)
         while True:
             try:
                 await maybe_notify_timer(client)
                 offset = await handle_updates(client, offset)
-            except (httpx.HTTPError, asyncio.TimeoutError) as e:
-                log.warning("loop error: %s", e)
-                await asyncio.sleep(2.0)
+            except (httpx.HTTPError, asyncio.TimeoutError, RuntimeError) as e:
+                if isinstance(e, RuntimeError) and str(e) == "telegram_get_updates_409":
+                    log.warning("loop: 409 на getUpdates — пауза 8 с (проверьте, что бот запущен в одном экземпляре)")
+                    await asyncio.sleep(8.0)
+                else:
+                    log.warning("loop error: %s", e)
+                    await asyncio.sleep(2.0)
             except Exception:
                 log.exception("fatal iteration")
                 await asyncio.sleep(3.0)

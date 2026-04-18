@@ -1,7 +1,9 @@
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -20,6 +22,7 @@ from app.schemas.sympathy import (
 )
 
 router = APIRouter(tags=["sympathy"])
+log = logging.getLogger(__name__)
 
 _DIM = SympathyDimension.OVERALL
 
@@ -29,50 +32,58 @@ async def cast_sympathy_vote(
     payload: SympathyVoteCreate,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
-) -> SympathyVote:
+) -> SympathyVoteRead:
     if payload.value not in (-1, 1):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="value must be -1 or 1")
     team = await db.get(Team, payload.team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
 
-    q = await db.execute(
-        select(SympathyVote).where(
-            SympathyVote.user_id == current_user.id,
-            SympathyVote.team_id == payload.team_id,
-            _sympathy_overall_clause(),
-        )
+    # UPSERT: одна строка на (user, team, dimension). Иначе при дубликатах в БД
+    # сумма в лидерборде считает все строки, а SELECT scalar_one_or_none обновлял только одну — шаг на 2.
+    tbl = SympathyVote.__table__
+    ins = pg_insert(tbl).values(
+        user_id=current_user.id,
+        team_id=payload.team_id,
+        dimension=_DIM.value,
+        value=payload.value,
     )
-    row = q.scalar_one_or_none()
-    if row:
-        row.value = payload.value
-    else:
-        row = SympathyVote(
-            user_id=current_user.id,
-            team_id=payload.team_id,
-            dimension=_DIM,
-            value=payload.value,
-        )
-        db.add(row)
+    stmt = ins.on_conflict_do_update(
+        constraint="uq_sympathy_user_team_dim",
+        set_={"value": payload.value},
+    ).returning(tbl.c.team_id, tbl.c.dimension, tbl.c.value)
+    row = (await db.execute(stmt)).one()
     await db.commit()
-    await db.refresh(row)
-    # После commit снимаем устаревший identity map — иначе агрегаты симпатий иногда читаются «пустыми».
-    db.expire_all()
-    rows = await leaderboard_totals(db)
-    for r in rows:
-        if int(r["team_id"]) == payload.team_id:
-            await sio.emit(
-                "rating_updated",
-                {
-                    "team_id": payload.team_id,
-                    "total_percent": r["total_percent"],
-                    "sympathy": True,
-                },
-            )
-            break
+    dim_raw = row.dimension
+    if isinstance(dim_raw, SympathyDimension):
+        dim = dim_raw
     else:
-        await sio.emit("rating_updated", {"team_id": payload.team_id, "sympathy": True})
-    return row
+        dim = SympathyDimension(str(dim_raw).strip().lower())
+    # Снимаем значения в DTO до expire_all — иначе ORM «протухает» и сериализация ответа даёт MissingGreenlet.
+    response = SympathyVoteRead(
+        team_id=int(row.team_id),
+        dimension=dim,
+        value=int(row.value),
+    )
+    db.expire_all()
+    try:
+        rows = await leaderboard_totals(db)
+        for r in rows:
+            if int(r["team_id"]) == payload.team_id:
+                await sio.emit(
+                    "rating_updated",
+                    {
+                        "team_id": payload.team_id,
+                        "total_percent": r["total_percent"],
+                        "sympathy": True,
+                    },
+                )
+                break
+        else:
+            await sio.emit("rating_updated", {"team_id": payload.team_id, "sympathy": True})
+    except Exception:
+        log.exception("sympathy vote: leaderboard/socket emit failed (vote still saved)")
+    return response
 
 
 @router.get("/team/{team_id}/total", response_model=SympathyTeamTotal)
@@ -113,7 +124,7 @@ async def my_sympathy_votes(
     team_id: Optional[int] = Query(default=None),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
-) -> List[SympathyVote]:
+) -> List[SympathyVoteRead]:
     q = select(SympathyVote).where(
         SympathyVote.user_id == current_user.id,
         _sympathy_overall_clause(),
@@ -122,4 +133,14 @@ async def my_sympathy_votes(
         q = q.where(SympathyVote.team_id == team_id)
     q = q.order_by(SympathyVote.team_id)
     res = await db.execute(q)
-    return list(res.scalars().all())
+    votes = list(res.scalars().all())
+    # На случай старых дубликатов в БД: для каждой команды берём голос с максимальным id.
+    by_team: dict[int, SympathyVote] = {}
+    for v in votes:
+        prev = by_team.get(v.team_id)
+        if prev is None or v.id > prev.id:
+            by_team[v.team_id] = v
+    ordered = sorted(by_team.values(), key=lambda x: x.team_id)
+    return [
+        SympathyVoteRead(team_id=v.team_id, dimension=v.dimension, value=int(v.value)) for v in ordered
+    ]

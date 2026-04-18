@@ -4,12 +4,19 @@ import { RouterLink } from 'vue-router'
 import { api } from '../api/http'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 
+interface MemberRow {
+  username: string
+  role: string
+}
+
 interface Team {
   id: number
   name: string
   description: string | null
   case_number: number | null
+  case_ordinal?: number | null
   photo_url: string | null
+  members?: MemberRow[]
 }
 
 interface Sheet {
@@ -71,12 +78,18 @@ function progressForTeam(teamId: number) {
             class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-90"
           />
           <div class="absolute bottom-0 left-0 right-0 p-5">
-            <p v-if="t.case_number != null" class="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-300/90">
-              case #{{ t.case_number }}
+            <p
+              v-if="(t.case_ordinal ?? t.case_number) != null"
+              class="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-300/90"
+            >
+              кейс №{{ t.case_ordinal ?? t.case_number }}
             </p>
             <h2 class="line-clamp-2 text-xl font-bold leading-tight text-white">{{ t.name }}</h2>
             <p v-if="t.description" class="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-400">
               {{ t.description }}
+            </p>
+            <p v-if="t.members?.length" class="mt-2 line-clamp-2 font-mono text-[10px] leading-relaxed text-slate-500">
+              {{ t.members.map((m) => '@' + m.username).join(' · ') }}
             </p>
           </div>
           <span

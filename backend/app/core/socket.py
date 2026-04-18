@@ -2,11 +2,11 @@ import socketio
 
 from app.core.config import settings
 
-# Те же origin, что у FastAPI CORS — иначе Socket.IO отвечает 403 на handshake.
-_origins = settings.cors_origin_list if settings.cors_origin_list else ["*"]
+# Должно совпадать с Origin браузера (включая PUBLIC_SITE_URL), иначе handshake 403.
+_sio_origins = settings.socketio_cors_allowed_origins
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=_origins,
+    cors_allowed_origins=_sio_origins,
     allow_upgrades=True,
 )
 

@@ -1,4 +1,5 @@
 from app.models.criterion import Criterion
+from app.models.hackathon_overview import HackathonOverview
 from app.models.hackathon_timer import HackathonTimer
 from app.models.message import Message
 from app.models.project_case import ProjectCase, ProjectCaseExpert, ProjectCaseTeam
@@ -12,6 +13,7 @@ from app.models.user import User, UserRole
 __all__ = [
     "User",
     "UserRole",
+    "HackathonOverview",
     "HackathonTimer",
     "Team",
     "TeamMember",
