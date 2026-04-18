@@ -1,6 +1,7 @@
+import re
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.core.config import settings
 
@@ -41,6 +42,19 @@ class TeamBriefUpdate(BaseModel):
     description: Optional[str] = None
     repo_url: Optional[str] = None
     screenshots_urls: Optional[List[str]] = None
+    solution_submission_url: Optional[str] = Field(None, max_length=2048)
+
+    @field_validator("solution_submission_url")
+    @classmethod
+    def _solution_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            return None
+        if not re.match(r"^https?://", s, re.I):
+            raise ValueError("Ссылка на решение должна начинаться с http:// или https://")
+        return s
 
 
 class TeamPublicRead(BaseModel):
@@ -55,6 +69,7 @@ class TeamPublicRead(BaseModel):
     photo_url: Optional[str] = None
     repo_url: Optional[str] = None
     screenshots_json: Optional[str] = None
+    solution_submission_url: Optional[str] = None
 
     @field_serializer("photo_url")
     def _serialize_photo_url(self, v: Optional[str]) -> str:
@@ -67,6 +82,7 @@ class TeamRead(TeamCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    solution_submission_url: Optional[str] = None
 
     @field_serializer("photo_url")
     def _serialize_photo_url(self, v: Optional[str]) -> str:

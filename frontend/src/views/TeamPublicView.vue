@@ -11,6 +11,9 @@ interface Team {
   description: string | null
   case_number: number | null
   photo_url: string | null
+  repo_url: string | null
+  screenshots_json: string | null
+  solution_submission_url: string | null
 }
 
 interface TeamMemberRow {
@@ -28,6 +31,30 @@ const err = ref('')
 const id = computed(() => Number(route.params.id))
 
 const coverSrc = computed(() => teamPhotoSrc(team.value?.photo_url))
+
+function parseShots(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const v = JSON.parse(raw) as unknown
+    return Array.isArray(v) ? (v as string[]).filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+const shotUrls = computed(() => parseShots(team.value?.screenshots_json ?? null))
+
+const solutionHref = computed(() => {
+  const u = team.value?.solution_submission_url?.trim()
+  if (!u) return null
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`
+})
+
+const repoHref = computed(() => {
+  const raw = team.value?.repo_url?.trim()
+  if (!raw) return null
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+})
 
 const sortedMembers = computed(() => {
   if (!members.value?.length) return []
@@ -91,6 +118,45 @@ watch(id, async () => {
     </div>
     <div class="space-y-8 p-8">
       <p v-if="team.description" class="whitespace-pre-wrap leading-relaxed text-slate-400">{{ team.description }}</p>
+
+      <div v-if="solutionHref" class="rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-4">
+        <p class="font-mono text-[10px] uppercase tracking-wider text-emerald-400/90">решение команды</p>
+        <a
+          :href="solutionHref"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-2 inline-flex break-all font-mono text-sm text-emerald-200 underline-offset-2 hover:text-emerald-100 hover:underline"
+        >
+          {{ solutionHref }}
+        </a>
+      </div>
+
+      <a
+        v-if="repoHref"
+        :href="repoHref"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 font-mono text-sm text-cyan-200 transition hover:border-cyan-500/35"
+      >
+        <span class="text-cyan-400/80">репозиторий</span>
+        <span class="min-w-0 flex-1 truncate">{{ team.repo_url }}</span>
+      </a>
+
+      <div v-if="shotUrls.length" class="space-y-2">
+        <p class="font-mono text-[10px] uppercase tracking-wider text-slate-500">материалы (ссылки / скриншоты)</p>
+        <ul class="grid gap-2 sm:grid-cols-2">
+          <li v-for="(u, i) in shotUrls" :key="i">
+            <a
+              :href="u"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block truncate rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-cyan-200/90 hover:border-cyan-500/30"
+            >
+              {{ u }}
+            </a>
+          </li>
+        </ul>
+      </div>
 
       <section v-if="sortedMembers.length" class="border-t border-white/10 pt-8">
         <p class="mb-4 font-mono text-xs uppercase tracking-widest text-cyan-500/80">// состав</p>

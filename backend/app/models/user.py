@@ -40,3 +40,10 @@ class User(Base):
     messages: Mapped[list["Message"]] = relationship(back_populates="author")
     team_memberships: Mapped[list["TeamMember"]] = relationship(back_populates="user")
     sympathy_votes_cast: Mapped[list["SympathyVote"]] = relationship(back_populates="voter")
+    case_expert_links: Mapped[list["ProjectCaseExpert"]] = relationship(back_populates="user")
+    tg_link_codes: Mapped[list["TgLinkCode"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    tg_subscriber: Mapped["TgSubscriber | None"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )

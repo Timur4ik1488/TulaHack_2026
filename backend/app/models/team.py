@@ -19,6 +19,7 @@ class Team(Base):
     invite_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     repo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     screenshots_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    solution_submission_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
     scores: Mapped[list["Score"]] = relationship(back_populates="team")
     messages: Mapped[list["Message"]] = relationship(back_populates="team")
@@ -26,6 +27,9 @@ class Team(Base):
         back_populates="team", cascade="all, delete-orphan"
     )
     sympathy_votes: Mapped[list["SympathyVote"]] = relationship(back_populates="team")
+    case_assignment: Mapped["ProjectCaseTeam | None"] = relationship(
+        back_populates="team", uselist=False, cascade="all, delete-orphan"
+    )
 
     @staticmethod
     def generate_invite_code() -> str:

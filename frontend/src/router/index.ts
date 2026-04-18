@@ -30,6 +30,18 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/cases',
+      name: 'cases',
+      component: () => import('../views/CasesListView.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/cases/:id',
+      name: 'case-detail',
+      component: () => import('../views/CaseDetailView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/teams/:id',
       name: 'team-public',
       component: () => import('../views/TeamPublicView.vue'),
@@ -96,6 +108,18 @@ const router = createRouter({
       meta: { roles: ['admin'] },
     },
     {
+      path: '/admin/cases',
+      name: 'admin-cases',
+      component: () => import('../views/AdminCasesView.vue'),
+      meta: { roles: ['admin'] },
+    },
+    {
+      path: '/admin/telegram-console',
+      name: 'admin-telegram-console',
+      component: () => import('../views/AdminTelegramConsoleView.vue'),
+      meta: { roles: ['admin'] },
+    },
+    {
       path: '/timer',
       name: 'hackathon-timer',
       component: () => import('../views/AdminTimerView.vue'),
@@ -114,7 +138,7 @@ router.beforeEach(async (to) => {
   if (to.meta.public) {
     return true
   }
-  if (!auth.user && !auth.loading) {
+  if (!auth.user) {
     await auth.fetchMe()
   }
   if (!auth.user) {

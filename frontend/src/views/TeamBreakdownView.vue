@@ -19,6 +19,10 @@ interface Breakdown {
   team_id: number
   team_name: string
   total_percent: number
+  sympathy_bonus_percent: number
+  sympathy_votes_sum: number
+  sympathy_cap_percent: number
+  leaderboard_total_percent: number
   criteria: CriterionRow[]
 }
 
@@ -31,6 +35,17 @@ const { teamId, err, teamsList, resolving, resolve, selectTeam, isStaff } = useR
 
 const teamIdNum = computed(() => teamId.value ?? NaN)
 const staff = computed(() => isStaff())
+
+function formatSympathyVotes(n: number) {
+  if (!n) return '0'
+  return n > 0 ? `+${n}` : String(n)
+}
+
+function sympathyBarPercent(d: Breakdown) {
+  const cap = d.sympathy_cap_percent || 0.001
+  const b = d.sympathy_bonus_percent || 0
+  return Math.min(100, Math.max(0, (100 * b) / cap))
+}
 
 async function load() {
   loadErr.value = ''
@@ -116,16 +131,49 @@ watch(teamIdNum, async () => {
           class="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-cyan-500/15 blur-3xl"
         />
         <div class="relative flex flex-col items-center text-center">
-          <p class="font-mono text-xs uppercase tracking-widest text-slate-500">итоговый балл</p>
+          <p class="font-mono text-xs uppercase tracking-widest text-slate-500">итог в лидерборде</p>
           <h2 class="mt-2 max-w-full truncate text-2xl font-bold text-white">{{ data.team_name }}</h2>
           <div
-            class="mt-6 flex h-36 w-36 items-center justify-center rounded-full border-4 border-rose-400/40 bg-gradient-to-br from-rose-500/30 to-amber-500/20 font-mono text-4xl font-bold text-white shadow-inner"
+            class="mt-6 flex h-36 w-36 items-center justify-center rounded-full border-4 border-emerald-400/40 bg-gradient-to-br from-emerald-500/25 to-cyan-500/20 font-mono text-4xl font-bold text-white shadow-inner"
           >
-            {{ Math.round(data.total_percent) }}%
+            {{ Math.round(data.leaderboard_total_percent) }}%
           </div>
-          <p class="mt-4 text-sm text-slate-400">Итог по взвешенным критериям (среднее жюри).</p>
+          <p class="mt-4 text-sm text-slate-400">
+            Жюри (критерии):
+            <span class="font-mono text-rose-200/90">{{ data.total_percent.toFixed(2) }}%</span>
+            · Симпатии:
+            <span class="font-mono text-violet-200/90">+{{ (data.sympathy_bonus_percent ?? 0).toFixed(2) }}%</span>
+            <span v-if="(data.sympathy_votes_sum ?? 0) !== 0" class="text-slate-500">
+              (голосов {{ formatSympathyVotes(data.sympathy_votes_sum ?? 0) }})
+            </span>
+          </p>
         </div>
       </div>
+
+      <div
+        class="overflow-hidden rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-950/40 to-slate-900/50 p-5 backdrop-blur-sm"
+      >
+        <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p class="font-medium text-violet-100">Зрительские симпатии</p>
+            <p class="mt-0.5 font-mono text-xs text-slate-500">
+              не жюри · до {{ (data.sympathy_cap_percent ?? 0).toFixed(1) }} п.п. к итогу лидерборда
+            </p>
+          </div>
+          <div class="text-right">
+            <p class="font-mono text-sm text-violet-200">+{{ (data.sympathy_bonus_percent ?? 0).toFixed(2) }}%</p>
+            <p class="font-mono text-xs text-slate-500">сумма голосов {{ formatSympathyVotes(data.sympathy_votes_sum ?? 0) }}</p>
+          </div>
+        </div>
+        <div class="h-2.5 overflow-hidden rounded-full bg-black/40 ring-1 ring-white/5">
+          <div
+            class="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-400 to-violet-300 transition-all"
+            :style="{ width: `${sympathyBarPercent(data)}%` }"
+          />
+        </div>
+      </div>
+
+      <p class="text-center font-mono text-[10px] uppercase tracking-wider text-slate-600">критерии жюри</p>
 
       <ul class="space-y-4">
         <li

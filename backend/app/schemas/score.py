@@ -16,14 +16,26 @@ class ScoreRead(ScoreCreate):
 
 
 class TeamRatingRead(BaseModel):
-    """Рейтинг: total_percent — доля от максимума, 0–100 (при весах критериев на 100%)."""
+    """Рейтинг: жюри + бонус симпатий (см. SYMPATHY_LEADERBOARD_WEIGHT), total_percent ≤ 100."""
 
     rank: int
     team_id: int
     team_name: str
+    jury_percent: float = Field(
+        ...,
+        description="Итог жюри по весам критериев, %.",
+    )
+    sympathy_bonus_percent: float = Field(
+        0.0,
+        description="Добавка от зрительских симпатий (нормализация по всем командам), п.п.",
+    )
+    sympathy_votes_sum: int = Field(
+        0,
+        description="Сумма голосов симпатий (+1/−1) по измерению overall для команды.",
+    )
     total_percent: float = Field(
         ...,
-        description="Сумма по критериям: avg(оценка)/max * weight(%). Макс. 100 при сумме весов 100.",
+        description="Итог для лидерборда: jury_percent + sympathy_bonus (макс. 100).",
     )
 
     @computed_field
@@ -49,6 +61,16 @@ class TeamScoreBreakdownRead(BaseModel):
     team_id: int
     team_name: str
     total_percent: float
+    """Сумма по критериям (только жюри)."""
+    sympathy_bonus_percent: float = 0.0
+    sympathy_votes_sum: int = 0
+    """Сумма голосов зрителей (+1/−1) по overall для команды."""
+    sympathy_cap_percent: float = Field(
+        0.0,
+        description="Максимальный бонус симпатий в лидерборде, п.п. (настройка SYMPATHY_LEADERBOARD_WEIGHT).",
+    )
+    leaderboard_total_percent: float = 0.0
+    """Итог как в лидерборде (жюри + симпатии)."""
     criteria: list[TeamScoreCriterionBreakdown]
 
 

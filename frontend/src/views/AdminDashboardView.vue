@@ -42,6 +42,12 @@ import { RouterLink } from 'vue-router'
         <span class="text-sm font-medium text-slate-100">Пользователи</span>
       </RouterLink>
       <RouterLink
+        to="/admin/cases"
+        class="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-4 text-center transition hover:border-cyan-500/40"
+      >
+        <span class="text-sm font-medium text-slate-100">Кейсы</span>
+      </RouterLink>
+      <RouterLink
         to="/timer"
         class="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-4 text-center transition hover:border-emerald-500/40"
       >

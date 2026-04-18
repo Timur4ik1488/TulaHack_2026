@@ -1,14 +1,16 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.socket import sio
 from app.db.db import get_async_db
 from app.models.sympathy_vote import SympathyDimension, SympathyVote
 from app.models.team import Team
 from app.models.user import User
+from app.scoring import _sympathy_overall_clause, leaderboard_totals
 from app.schemas.sympathy import (
     SympathyLeaderboardResponse,
     SympathyLeaderboardRow,
@@ -38,7 +40,7 @@ async def cast_sympathy_vote(
         select(SympathyVote).where(
             SympathyVote.user_id == current_user.id,
             SympathyVote.team_id == payload.team_id,
-            SympathyVote.dimension == _DIM,
+            _sympathy_overall_clause(),
         )
     )
     row = q.scalar_one_or_none()
@@ -54,6 +56,22 @@ async def cast_sympathy_vote(
         db.add(row)
     await db.commit()
     await db.refresh(row)
+    # После commit снимаем устаревший identity map — иначе агрегаты симпатий иногда читаются «пустыми».
+    db.expire_all()
+    rows = await leaderboard_totals(db)
+    for r in rows:
+        if int(r["team_id"]) == payload.team_id:
+            await sio.emit(
+                "rating_updated",
+                {
+                    "team_id": payload.team_id,
+                    "total_percent": r["total_percent"],
+                    "sympathy": True,
+                },
+            )
+            break
+    else:
+        await sio.emit("rating_updated", {"team_id": payload.team_id, "sympathy": True})
     return row
 
 
@@ -62,9 +80,9 @@ async def sympathy_team_total(team_id: int, db: AsyncSession = Depends(get_async
     team = await db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
-    stmt = select(func.coalesce(func.sum(SympathyVote.value), 0)).where(
+    cond = _sympathy_overall_clause()
+    stmt = select(func.coalesce(func.sum(case((cond, SympathyVote.value), else_=0)), 0)).where(
         SympathyVote.team_id == team_id,
-        SympathyVote.dimension == _DIM,
     )
     total = int((await db.execute(stmt)).scalar_one() or 0)
     return SympathyTeamTotal(team_id=team_id, total=total)
@@ -72,14 +90,16 @@ async def sympathy_team_total(team_id: int, db: AsyncSession = Depends(get_async
 
 @router.get("/leaderboard", response_model=SympathyLeaderboardResponse)
 async def sympathy_leaderboard(db: AsyncSession = Depends(get_async_db)) -> SympathyLeaderboardResponse:
-    join_on = and_(Team.id == SympathyVote.team_id, SympathyVote.dimension == _DIM)
-    stmt = (
-        select(Team.id, Team.name, func.coalesce(func.sum(SympathyVote.value), 0))
+    cond = _sympathy_overall_clause()
+    sym_sum = func.coalesce(func.sum(case((cond, SympathyVote.value), else_=0)), 0).label("sym_sum")
+    agg = (
+        select(Team.id.label("tid"), Team.name.label("tname"), sym_sum)
         .select_from(Team)
-        .outerjoin(SympathyVote, join_on)
+        .outerjoin(SympathyVote, Team.id == SympathyVote.team_id)
         .group_by(Team.id, Team.name)
-        .order_by(func.coalesce(func.sum(SympathyVote.value), 0).desc(), Team.name.asc())
+        .subquery()
     )
+    stmt = select(agg.c.tid, agg.c.tname, agg.c.sym_sum).order_by(agg.c.sym_sum.desc(), agg.c.tname.asc())
     result = await db.execute(stmt)
     rows = [
         SympathyLeaderboardRow(team_id=int(tid), team_name=str(name), score=int(total or 0))
@@ -96,7 +116,7 @@ async def my_sympathy_votes(
 ) -> List[SympathyVote]:
     q = select(SympathyVote).where(
         SympathyVote.user_id == current_user.id,
-        SympathyVote.dimension == _DIM,
+        _sympathy_overall_clause(),
     )
     if team_id is not None:
         q = q.where(SympathyVote.team_id == team_id)

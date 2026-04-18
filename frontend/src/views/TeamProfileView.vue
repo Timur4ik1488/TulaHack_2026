@@ -17,6 +17,7 @@ interface TeamRead {
   invite_code: string | null
   repo_url: string | null
   screenshots_json: string | null
+  solution_submission_url: string | null
 }
 
 interface TeamMemberOut {
@@ -39,6 +40,8 @@ const busy = ref(false)
 const briefDesc = ref('')
 const briefRepo = ref('')
 const briefShots = ref('')
+const briefSolution = ref('')
+const submissionOpen = ref(true)
 const joinCode = ref('')
 const photoMsg = ref('')
 const avatarBusy = ref(false)
@@ -48,6 +51,28 @@ let inviteCopyTimer: ReturnType<typeof setTimeout> | null = null
 
 const isStaff = computed(() => auth.role === 'admin' || auth.role === 'expert')
 const isParticipant = computed(() => auth.role === 'participant')
+
+const tgBotUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'HackSwipeBot'
+
+let timerPoll: ReturnType<typeof setInterval> | null = null
+
+async function pollSubmissionWindow() {
+  try {
+    const { data } = await api.get<{ submission_window_open?: boolean }>('/api/timer/')
+    submissionOpen.value = data.submission_window_open !== false
+  } catch {
+    /* */
+  }
+}
+
+async function openTelegramBind() {
+  try {
+    const { data } = await api.post<{ url: string }>('/api/telegram/deeplink')
+    window.open(data.url, '_blank', 'noopener,noreferrer')
+  } catch {
+    photoMsg.value = 'Не удалось получить ссылку на бота (войдите заново?)'
+  }
+}
 
 function accountRoleLabel(role: string | undefined) {
   if (!role) return ''
@@ -144,6 +169,7 @@ async function load() {
     briefDesc.value = data.team.description ?? ''
     briefRepo.value = data.team.repo_url ?? ''
     briefShots.value = parseShots(data.team.screenshots_json).join('\n')
+    briefSolution.value = data.team.solution_submission_url ?? ''
   } catch {
     err.value = 'Вы не в команде. Зарегистрируйтесь с инвайтом или создайте команду.'
   }
@@ -162,11 +188,12 @@ async function saveBrief() {
       description: briefDesc.value || null,
       repo_url: briefRepo.value || null,
       screenshots_urls: urls,
+      solution_submission_url: briefSolution.value.trim() || null,
     })
     await load()
     photoMsg.value = 'Материалы для жюри сохранены'
-  } catch {
-    photoMsg.value = 'Не удалось сохранить материалы'
+  } catch (e) {
+    photoMsg.value = apiErrorMessage(e, 'Не удалось сохранить материалы')
   } finally {
     busy.value = false
   }
@@ -205,6 +232,7 @@ async function joinByInvite() {
     briefDesc.value = data.team.description ?? ''
     briefRepo.value = data.team.repo_url ?? ''
     briefShots.value = parseShots(data.team.screenshots_json).join('\n')
+    briefSolution.value = data.team.solution_submission_url ?? ''
     photoMsg.value = 'Вы в команде'
   } catch (e) {
     photoMsg.value = apiErrorMessage(e, 'Не удалось вступить по коду')
@@ -216,11 +244,14 @@ async function joinByInvite() {
 onMounted(() => {
   if (isParticipant.value) {
     void load()
+    void pollSubmissionWindow()
+    timerPoll = setInterval(pollSubmissionWindow, 10000)
   }
 })
 
 onUnmounted(() => {
   if (inviteCopyTimer) clearTimeout(inviteCopyTimer)
+  if (timerPoll) clearInterval(timerPoll)
 })
 </script>
 
@@ -316,6 +347,29 @@ onUnmounted(() => {
             <span class="text-sm font-medium text-slate-100">Лидерборд</span>
             <span class="font-mono text-xs text-slate-400">→</span>
           </RouterLink>
+          <RouterLink
+            to="/cases"
+            class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-cyan-400/35 hover:bg-cyan-500/10 sm:col-span-2"
+          >
+            <span class="text-sm font-medium text-slate-100">Кейсы</span>
+            <span class="font-mono text-xs text-cyan-300">→</span>
+          </RouterLink>
+          <a
+            :href="`https://t.me/${tgBotUsername}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center justify-between rounded-2xl border border-sky-500/25 bg-sky-500/10 px-4 py-3 transition hover:border-sky-400/40 sm:col-span-2"
+          >
+            <span class="text-sm font-medium text-sky-100">Telegram</span>
+            <span class="font-mono text-xs text-sky-300">↗</span>
+          </a>
+          <button
+            type="button"
+            class="rounded-2xl border border-sky-400/30 bg-black/30 px-4 py-3 text-left text-sm text-sky-100 transition hover:bg-sky-500/15 sm:col-span-2"
+            @click="openTelegramBind"
+          >
+            Привязать TG для уведомлений о таймере
+          </button>
           <template v-if="auth.user.role === 'admin'">
             <RouterLink
               to="/admin/teams"
@@ -435,13 +489,37 @@ onUnmounted(() => {
             <span>Оценки</span>
             <span class="font-mono text-xs text-rose-300/90">→</span>
           </RouterLink>
-          <RouterLink
+            <RouterLink
             class="flex min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-emerald-400/35 hover:bg-emerald-500/10"
             :to="`/teams/${teamId}`"
           >
             <span>Публичная карточка</span>
             <span class="font-mono text-xs text-emerald-300/90">→</span>
           </RouterLink>
+          <RouterLink
+            class="flex min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-cyan-400/35 hover:bg-cyan-500/10"
+            to="/cases"
+          >
+            <span>Кейсы</span>
+            <span class="font-mono text-xs text-cyan-300/90">→</span>
+          </RouterLink>
+          <a
+            class="flex min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-sky-500/25 bg-sky-500/10 px-4 py-2.5 text-sm font-medium text-sky-100 transition hover:border-sky-400/45"
+            :href="`https://t.me/${tgBotUsername}`"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>Telegram</span>
+            <span class="font-mono text-xs text-sky-300/90">↗</span>
+          </a>
+          <button
+            type="button"
+            class="flex min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-sky-400/30 bg-black/30 px-4 py-2.5 text-sm font-medium text-sky-100 transition hover:bg-sky-500/15"
+            @click="openTelegramBind"
+          >
+            <span>TG уведомления</span>
+            <span class="font-mono text-xs text-sky-300/90">↗</span>
+          </button>
         </div>
 
         <div
@@ -610,6 +688,21 @@ onUnmounted(() => {
                 class="input input-bordered mb-4 w-full border-white/10 bg-black/35 font-mono text-sm text-slate-100"
                 placeholder="https://github.com/org/repo"
               />
+
+              <label class="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-slate-500"
+                >ссылка на решение (http/https)</label
+              >
+              <input
+                v-model="briefSolution"
+                type="url"
+                class="input input-bordered mb-1 w-full border-white/10 bg-black/35 font-mono text-sm text-slate-100"
+                placeholder="https://…"
+                :disabled="!submissionOpen"
+              />
+              <p v-if="!submissionOpen" class="mb-4 font-mono text-[10px] text-amber-400/90">
+                Таймер истёк — ссылку на решение менять нельзя.
+              </p>
+              <p v-else class="mb-4 font-mono text-[10px] text-slate-600">Видна всем на публичной карточке команды.</p>
 
               <label class="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-slate-500"
                 >скриншоты — URL по одному в строке</label

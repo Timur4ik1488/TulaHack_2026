@@ -16,19 +16,29 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
   const loading = ref(false)
 
+  let fetchMePromise: Promise<void> | null = null
+
   const role = computed(() => user.value?.role ?? null)
   const isLoggedIn = computed(() => !!user.value)
 
   async function fetchMe() {
-    loading.value = true
-    try {
-      const { data } = await api.get<AuthUser>('/api/auth/me')
-      user.value = data
-    } catch {
-      user.value = null
-    } finally {
-      loading.value = false
+    if (fetchMePromise) {
+      return fetchMePromise
     }
+    loading.value = true
+    fetchMePromise = (async () => {
+      try {
+        const { data } = await api.get<AuthUser>('/api/auth/me')
+        user.value = data
+      } catch {
+        user.value = null
+      } finally {
+        loading.value = false
+      }
+    })().finally(() => {
+      fetchMePromise = null
+    })
+    return fetchMePromise
   }
 
   async function login(email: string, password: string) {

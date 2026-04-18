@@ -18,7 +18,8 @@ from app.schemas.score import (
     TeamScoreBreakdownRead,
     TeamScoreCriterionBreakdown,
 )
-from app.scoring import leaderboard_totals, team_total_percent
+from app.core.config import settings
+from app.scoring import _sympathy_sum_by_team, leaderboard_totals, team_total_percent
 
 router = APIRouter(tags=["scores"])
 
@@ -37,6 +38,9 @@ def _rank_rows(rows: List[Dict[str, Any]]) -> List[TeamRatingRead]:
                 rank=rank,
                 team_id=row["team_id"],
                 team_name=row["team_name"],
+                jury_percent=float(row["jury_percent"]),
+                sympathy_bonus_percent=float(row.get("sympathy_bonus_percent", 0.0)),
+                sympathy_votes_sum=int(row.get("sympathy_votes_sum", 0)),
                 total_percent=pct,
             )
         )
@@ -183,10 +187,20 @@ async def team_score_breakdown(
             )
         )
 
+    jury = round(total, 2)
+    lb_total = await team_total_percent(db, team_id)
+    sym_bonus = round(lb_total - jury, 4)
+    sym_by_team = await _sympathy_sum_by_team(db)
+    sym_votes = int(round(float(sym_by_team.get(team_id, 0.0))))
+
     return TeamScoreBreakdownRead(
         team_id=team.id,
         team_name=team.name,
-        total_percent=round(total, 2),
+        total_percent=jury,
+        sympathy_bonus_percent=sym_bonus,
+        sympathy_votes_sum=sym_votes,
+        sympathy_cap_percent=float(settings.SYMPATHY_LEADERBOARD_WEIGHT),
+        leaderboard_total_percent=lb_total,
         criteria=criteria,
     )
 

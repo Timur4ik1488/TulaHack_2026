@@ -3,42 +3,42 @@ networks:
     driver: bridge
 
 services:
-  db:
-    image: postgres:alpine
-    container_name: tula_db
-    shm_size: 256mb
-    restart: unless-stopped
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  # db:
+  #   image: postgres:alpine
+  #   container_name: tula_db
+  #   shm_size: 256mb
+  #   restart: unless-stopped
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
 
-    env_file:
-      - .env
+  #   env_file:
+  #     - .env
 
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+  #   environment:
+  #     - POSTGRES_USER=${POSTGRES_USER}
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  #     - POSTGRES_DB=${POSTGRES_DB}
 
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 8s
-      timeout: 30s
-      retries: 5
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+  #     interval: 8s
+  #     timeout: 30s
+  #     retries: 5
 
-    ports:
-      - 5434:5432
+  #   ports:
+  #     - 5434:5432
 
-    networks:
-      - dev
+  #   networks:
+  #     - dev
 
-  adminer:
-    image: adminer
-    container_name: tula_adminer
-    restart: always
-    ports:
-      - 7000:8080
-    networks:
-      - dev
+  # adminer:
+  #   image: adminer
+  #   container_name: tula_adminer
+  #   restart: always
+  #   ports:
+  #     - 7000:8080
+  #   networks:
+  #     - dev
 
   backend:
     build:
@@ -54,10 +54,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-    depends_on:
-      db:
-        condition: service_healthy
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
     healthcheck:
       test:
         [
@@ -72,6 +69,26 @@ services:
       start_period: 90s
     ports:
       - 8000:8000
+    networks:
+      - dev
+
+  # Telegram-бот: polling + вызовы internal API бэкенда.
+  # Обязательно в корневом .env: TELEGRAM_BOT_TOKEN (или BOT_TOKEN), TELEGRAM_INTERNAL_SECRET — тот же секрет, что у backend.
+  # API_BASE_URL — имя сервиса Docker Compose (ниже сервис backend), не 127.0.0.1.
+  tg_bot:
+    build:
+      context: ./tg_bot
+      dockerfile: Dockerfile
+    container_name: tula_tg_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Переопределяет только URL API; токены и секрет — из .env (см. .env.example).
+      API_BASE_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       - dev
 
@@ -158,6 +175,5 @@ services:
       - dev
 
 volumes:
-  postgres_data:
   loki_data:
   grafana_data:

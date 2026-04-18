@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { api } from '../api/http'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 import { apiErrorMessage } from '../utils/apiErrorMessage'
@@ -12,9 +13,21 @@ interface Team {
   description: string | null
   case_number: number | null
   photo_url: string | null
+  repo_url?: string | null
+  solution_submission_url?: string | null
+  screenshots_json?: string | null
+}
+
+interface CaseRow {
+  id: number
+  ordinal: number
+  title: string
+  description: string | null
+  company_name: string
 }
 
 const teams = ref<Team[]>([])
+const cases = ref<CaseRow[]>([])
 const form = reactive({
   name: '',
   members: '',
@@ -26,9 +39,22 @@ const form = reactive({
 const busy = ref(false)
 const formMsg = ref('')
 
+function caseForTeam(t: Team): CaseRow | null {
+  if (t.case_number == null) return null
+  const n = t.case_number
+  return (
+    cases.value.find((c) => c.ordinal === n || c.id === n) ??
+    null
+  )
+}
+
 async function load() {
-  const { data } = await api.get<Team[]>('/api/teams/')
-  teams.value = data
+  const [tr, cr] = await Promise.all([
+    api.get<Team[]>('/api/teams/'),
+    api.get<CaseRow[]>('/api/cases/'),
+  ])
+  teams.value = tr.data
+  cases.value = cr.data
 }
 
 async function createTeam() {
@@ -163,34 +189,83 @@ onMounted(load)
 
     <section>
       <h2 class="mb-4 font-mono text-xs uppercase tracking-widest text-slate-500">все команды ({{ teams.length }})</h2>
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="space-y-6">
         <article
           v-for="t in teams"
           :key="t.id"
-          class="flex overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40 shadow-lg transition hover:border-cyan-500/25"
+          class="grid gap-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/35 shadow-lg lg:grid-cols-2"
         >
-          <div class="relative w-24 shrink-0">
-            <img
-              :src="teamPhotoSrc(t.photo_url)"
-              :alt="t.name"
-              class="h-full min-h-[112px] w-full object-cover"
-              @error="onTeamPhotoError"
-            />
-            <div class="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
-          </div>
-          <div class="flex min-w-0 flex-1 flex-col justify-between p-4">
-            <div>
-              <p class="font-mono text-[10px] text-slate-600">#{{ t.id }}</p>
-              <h3 class="truncate font-semibold text-slate-100">{{ t.name }}</h3>
-              <p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ t.contact }}</p>
+          <div class="flex min-w-0">
+            <div class="relative w-28 shrink-0 sm:w-32">
+              <img
+                :src="teamPhotoSrc(t.photo_url)"
+                :alt="t.name"
+                class="h-full min-h-[140px] w-full object-cover"
+                @error="onTeamPhotoError"
+              />
+              <div class="absolute inset-0 bg-gradient-to-r from-black/55 to-transparent" />
             </div>
-            <button
-              type="button"
-              class="mt-3 self-start rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 font-mono text-[10px] text-rose-300 transition hover:bg-rose-500/20"
-              @click="remove(t.id)"
+            <div class="flex min-w-0 flex-1 flex-col justify-between p-4">
+              <div class="min-w-0">
+                <p class="font-mono text-[10px] text-slate-600">#{{ t.id }}</p>
+                <h3 class="truncate text-lg font-semibold text-slate-100">{{ t.name }}</h3>
+                <p v-if="t.case_number != null" class="mt-1 font-mono text-xs text-amber-200/90">кейс №{{ t.case_number }}</p>
+                <p class="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-400">
+                  {{ t.description || '— без описания —' }}
+                </p>
+                <p class="mt-2 truncate font-mono text-[10px] text-slate-500">контакт: {{ t.contact }}</p>
+                <a
+                  v-if="t.repo_url"
+                  :href="t.repo_url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mt-1 inline-block max-w-full truncate font-mono text-[10px] text-cyan-400/90 underline-offset-2 hover:text-cyan-300"
+                >
+                  репозиторий →
+                </a>
+              </div>
+              <button
+                type="button"
+                class="mt-3 self-start rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 font-mono text-[10px] text-rose-300 transition hover:bg-rose-500/20"
+                @click="remove(t.id)"
+              >
+                удалить команду
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="flex min-w-0 flex-col justify-between border-t border-white/5 p-4 lg:border-l lg:border-t-0 lg:pl-5"
+          >
+            <div>
+              <p class="font-mono text-[10px] uppercase tracking-wider text-violet-400/90">кейс хакатона</p>
+              <template v-if="caseForTeam(t)">
+                <h4 class="mt-1 font-semibold text-slate-100">{{ caseForTeam(t)!.title }}</h4>
+                <p class="mt-0.5 font-mono text-[10px] text-slate-500">{{ caseForTeam(t)!.company_name }}</p>
+                <p class="mt-2 line-clamp-4 text-xs text-slate-400">
+                  {{ caseForTeam(t)!.description || '—' }}
+                </p>
+              </template>
+              <p v-else class="mt-2 text-sm text-slate-500">Кейс не привязан (номер кейса не задан или не найден в списке кейсов).</p>
+
+              <p class="mt-4 font-mono text-[10px] uppercase tracking-wider text-emerald-400/90">ссылка на решение</p>
+              <a
+                v-if="t.solution_submission_url"
+                :href="t.solution_submission_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-1 break-all font-mono text-xs text-emerald-300/95 underline-offset-2 hover:text-emerald-200"
+              >
+                {{ t.solution_submission_url }}
+              </a>
+              <p v-else class="mt-1 text-xs text-slate-500">Команда ещё не указала ссылку на решение (видно капитану в профиле).</p>
+            </div>
+            <RouterLink
+              class="mt-4 inline-flex w-fit items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 font-mono text-[10px] text-cyan-200 hover:bg-cyan-500/20"
+              :to="`/teams/${t.id}`"
             >
-              удалить
-            </button>
+              публичная карточка →
+            </RouterLink>
           </div>
         </article>
       </div>

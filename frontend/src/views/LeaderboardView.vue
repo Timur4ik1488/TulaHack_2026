@@ -8,6 +8,9 @@ interface Row {
   rank: number
   team_id: number
   team_name: string
+  jury_percent: number
+  sympathy_bonus_percent: number
+  sympathy_votes_sum?: number
   total_percent: number
 }
 
@@ -33,6 +36,12 @@ function rankBadgeClass(rank: number) {
   if (rank === 2) return 'bg-gradient-to-br from-slate-200 to-slate-500 text-slate-950 ring-slate-200/40'
   if (rank === 3) return 'bg-gradient-to-br from-orange-300 to-amber-800 text-slate-950 ring-orange-300/35'
   return 'bg-gradient-to-br from-slate-800 to-slate-900 text-cyan-400 ring-white/10'
+}
+
+function sympathyVotesHint(n?: number) {
+  const v = n ?? 0
+  if (v === 0) return ''
+  return ` (Σ ${v})`
 }
 
 async function load() {
@@ -63,7 +72,9 @@ onUnmounted(() => {
     <div class="mb-8 text-center">
       <p class="mb-2 font-mono text-xs text-emerald-500/80">// обновление рейтинга в реальном времени</p>
       <h1 class="text-3xl font-bold tracking-tight text-slate-100">Лидерборд команд</h1>
-      <p class="mt-2 text-sm text-slate-500">Обновляется по WebSocket при изменении оценок.</p>
+      <p class="mt-2 text-sm text-slate-500">
+        Итог: жюри + зрительские симпатии (бонус до нескольких п.п.). Обновление по WebSocket.
+      </p>
     </div>
     <p v-if="err" class="mb-4 text-center font-mono text-sm text-rose-400">{{ err }}</p>
     <TransitionGroup name="lb" tag="ul" class="relative mx-auto max-w-3xl space-y-3 px-0 sm:px-0">
@@ -73,7 +84,7 @@ onUnmounted(() => {
         class="group flex flex-col gap-3 rounded-2xl border px-4 py-4 shadow-lg backdrop-blur-sm transition hover:border-cyan-500/25 hover:shadow-cyan-900/20 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
         :class="medalRowClass(r.rank)"
       >
-        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+        <div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <span
             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-mono text-sm font-bold ring-2 sm:h-11 sm:w-11 sm:text-lg"
             :class="rankBadgeClass(r.rank)"
@@ -86,12 +97,24 @@ onUnmounted(() => {
           >
             {{ r.team_name }}
           </RouterLink>
+          <div class="hidden font-mono text-[10px] text-slate-500 sm:block sm:max-w-[14rem] sm:truncate">
+            жюри {{ r.jury_percent?.toFixed?.(2) ?? '—' }}% · симп. +{{ (r.sympathy_bonus_percent ?? 0).toFixed(2) }}%{{
+              sympathyVotesHint(r.sympathy_votes_sum)
+            }}
+          </div>
         </div>
-        <span
-          class="shrink-0 self-end rounded-lg bg-black/40 px-3 py-1.5 font-mono text-base tabular-nums text-emerald-400 ring-1 ring-emerald-500/25 sm:self-auto sm:text-lg"
-        >
-          {{ r.total_percent.toFixed(2) }}%
-        </span>
+        <div class="flex w-full flex-col items-end gap-1 sm:w-auto">
+          <span
+            class="shrink-0 rounded-lg bg-black/40 px-3 py-1.5 font-mono text-base tabular-nums text-emerald-400 ring-1 ring-emerald-500/25 sm:text-lg"
+          >
+            {{ r.total_percent.toFixed(2) }}%
+          </span>
+          <span class="font-mono text-[10px] text-slate-500 sm:hidden">
+            жюри {{ r.jury_percent?.toFixed?.(2) ?? '—' }}% · симп. +{{ (r.sympathy_bonus_percent ?? 0).toFixed(2) }}%{{
+              sympathyVotesHint(r.sympathy_votes_sum)
+            }}
+          </span>
+        </div>
       </li>
     </TransitionGroup>
   </div>

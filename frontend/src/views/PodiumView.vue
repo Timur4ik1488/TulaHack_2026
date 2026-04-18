@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '../api/http'
+import { useSocket } from '../composables/useSocket'
 
 interface Row {
   rank: number
   team_id: number
   team_name: string
+  jury_percent: number
+  sympathy_bonus_percent: number
   total_percent: number
 }
 
 const rows = ref<Row[]>([])
 const err = ref('')
+const { ensureConnected } = useSocket()
 
 function podiumCardClass(rank: number) {
   if (rank === 1) {
@@ -33,13 +37,24 @@ function podiumBadgeClass(rank: number) {
   return 'from-slate-600 to-slate-800 text-white'
 }
 
-onMounted(async () => {
+async function load() {
   try {
     const { data } = await api.get<Row[]>('/api/scores/podium', { params: { limit: 3 } })
     rows.value = data
   } catch {
     err.value = 'Не удалось загрузить подиум'
   }
+}
+
+onMounted(async () => {
+  await load()
+  const s = ensureConnected()
+  s.on('rating_updated', load)
+})
+
+onUnmounted(() => {
+  const s = ensureConnected()
+  s.off('rating_updated', load)
 })
 </script>
 
@@ -49,7 +64,7 @@ onMounted(async () => {
       <p class="mb-2 font-mono text-xs text-amber-400/80">// топ-3</p>
       <h1 class="text-3xl font-bold text-slate-100 sm:text-4xl">Топ-3 команд</h1>
       <p class="mx-auto mt-3 max-w-md text-sm text-slate-500">
-        Подиум по итоговому взвешенному % — клик по названию открывает публичную карточку команды.
+        Топ-3 по итогу лидерборда: жюри плюс бонус зрительских симпатий. Клик по названию — публичная карточка.
       </p>
     </div>
     <p v-if="err" class="mb-6 text-center font-mono text-sm text-rose-400">{{ err }}</p>
@@ -73,6 +88,9 @@ onMounted(async () => {
           <RouterLink :to="`/teams/${r.team_id}`" class="hover:text-cyan-300">{{ r.team_name }}</RouterLink>
         </h2>
         <p class="font-mono text-2xl font-bold tabular-nums text-emerald-400 sm:text-3xl">{{ r.total_percent.toFixed(2) }}%</p>
+        <p class="mt-2 font-mono text-[10px] leading-relaxed text-slate-500">
+          жюри {{ (r.jury_percent ?? 0).toFixed(2) }}% · симп. +{{ (r.sympathy_bonus_percent ?? 0).toFixed(2) }}%
+        </p>
       </div>
     </div>
   </div>

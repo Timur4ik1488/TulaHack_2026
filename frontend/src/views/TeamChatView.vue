@@ -35,7 +35,7 @@ async function loadMessages() {
   if (!Number.isFinite(teamIdNum.value)) return
   sendErr.value = ''
   const { data } = await api.get<Message[]>(`/api/chat/${teamIdNum.value}`)
-  messages.value = data.map((row) => ({
+  messages.value = data.map((row: Message) => ({
     ...row,
     author_username: row.author_username ?? '?',
     author_role_label: row.author_role_label ?? '—',

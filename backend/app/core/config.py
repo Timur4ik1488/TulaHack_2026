@@ -1,5 +1,6 @@
 from typing import Literal
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +55,26 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = ""
 
     MAX_TEAM_MEMBERS: int = 8
+
+    # Зрительские симпатии: до стольких процентных пунктов добавляются к итогу жюри (0–100).
+    SYMPATHY_LEADERBOARD_WEIGHT: float = 5.0
+
+    TELEGRAM_BOT_USERNAME: str = "HackSwipeBot"
+    TELEGRAM_BOT_TOKEN: str = Field(
+        default="",
+        validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "BOT_TOKEN"),
+    )
+    TELEGRAM_INTERNAL_SECRET: str = ""
+    TELEGRAM_ADMIN_CHAT_ID: str = Field(
+        default="",
+        validation_alias=AliasChoices("TELEGRAM_ADMIN_CHAT_ID", "ADMIN_CHAT_ID"),
+    )
+
+    # Ссылки в ответах бота и письмах (фронтенд без завершающего /).
+    PUBLIC_SITE_URL: str = Field(
+        default="http://127.0.0.1:5173",
+        validation_alias=AliasChoices("PUBLIC_SITE_URL", "SITE_URL", "FRONTEND_URL", "VITE_APP_URL"),
+    )
 
     @property
     def get_db_url(self) -> str:

@@ -9,10 +9,14 @@ const auth = useAuthStore()
 interface TimerResp {
   deadline_at: string | null
   server_now: string
+  submission_window_open?: boolean
+  deadline_passed?: boolean
+  last_duration_minutes?: number | null
 }
 
 const minutes = ref(45)
 const secondsLeft = ref(0)
+const deadlinePassed = ref(false)
 const msg = ref('')
 const busy = ref(false)
 
@@ -29,6 +33,10 @@ const isRunning = computed(() => secondsLeft.value > 0)
 async function poll() {
   try {
     const { data } = await api.get<TimerResp>('/api/timer/')
+    deadlinePassed.value = !!data.deadline_passed
+    if (data.last_duration_minutes != null && Number.isFinite(data.last_duration_minutes)) {
+      minutes.value = Math.round(data.last_duration_minutes)
+    }
     if (!data.deadline_at) {
       secondsLeft.value = 0
       return
@@ -36,6 +44,9 @@ async function poll() {
     const end = new Date(data.deadline_at).getTime()
     const srv = new Date(data.server_now).getTime()
     secondsLeft.value = Math.max(0, Math.floor((end - srv) / 1000))
+    if (secondsLeft.value === 0 && data.deadline_at) {
+      deadlinePassed.value = true
+    }
   } catch {
     /* гость без сети — тихо */
   }
@@ -96,7 +107,8 @@ onUnmounted(() => {
         Таймер хакатона
       </h1>
       <p class="mt-2 text-sm text-slate-500">
-        Синхронизация с бэкендом: все клиенты видят одно и то же время (опрос раз в секунду).
+        Синхронизация с бэкендом: все клиенты видят одно и то же время (опрос раз в секунду). Поле «минуты» подтягивает
+        значение последнего старта с сервера, чтобы не путать с дефолтом 45.
       </p>
     </div>
 
@@ -118,6 +130,12 @@ onUnmounted(() => {
         class="my-6 bg-gradient-to-br from-cyan-400 via-white to-emerald-400 bg-clip-text font-mono text-5xl font-bold tabular-nums text-transparent sm:text-6xl md:text-7xl"
       >
         {{ display }}
+      </p>
+      <p v-if="isRunning && minutes" class="mb-2 font-mono text-[11px] text-slate-500">
+        Запущено на <span class="text-cyan-400/90">{{ minutes }}</span> мин (сервер) · осталось см. выше
+      </p>
+      <p v-if="deadlinePassed" class="mb-4 rounded-xl border border-amber-500/35 bg-amber-950/40 px-3 py-2 font-mono text-xs text-amber-100">
+        Дедлайн наступил. На сайте отправлено событие «хакатон завершён»; ссылки на решения заморожены.
       </p>
       <p v-if="msg" class="mb-4 font-mono text-xs text-slate-400">{{ msg }}</p>
       <div class="flex flex-col gap-2 sm:flex-row sm:justify-center sm:gap-3">

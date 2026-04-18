@@ -14,6 +14,7 @@ from app.api.deps import (
     is_user_admin,
 )
 from app.core.config import settings
+from app.core.timer_helpers import submission_window_open
 from app.core.team_invite import generate_unique_invite_code
 from app.db.db import get_async_db
 from app.models.message import Message
@@ -226,6 +227,13 @@ async def update_team_brief(
         team.repo_url = data["repo_url"]
     if "screenshots_urls" in data and data["screenshots_urls"] is not None:
         team.screenshots_json = json.dumps(data["screenshots_urls"])
+    if "solution_submission_url" in data:
+        if not await submission_window_open(db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Ссылку на решение можно менять только до окончания таймера",
+            )
+        team.solution_submission_url = data["solution_submission_url"]
     await db.commit()
     await db.refresh(team)
     return team

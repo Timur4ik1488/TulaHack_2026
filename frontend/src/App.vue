@@ -1,9 +1,66 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { api } from './api/http'
+import { useSocket } from './composables/useSocket'
 import { useAuthStore } from './stores/auth'
 
 const auth = useAuthStore()
+const router = useRouter()
+const route = useRoute()
+const hackathonEnded = ref(false)
+const { ensureConnected } = useSocket()
+const tgBotUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'HackSwipeBot'
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+let onHackathonEnded: (() => void) | undefined
+let onRatingUpdated: ((p: unknown) => void) | undefined
+
+async function pollDeadline() {
+  try {
+    const { data } = await api.get<{ deadline_passed?: boolean }>('/api/timer/')
+    if (data.deadline_passed) hackathonEnded.value = true
+  } catch {
+    /* гость / офлайн */
+  }
+}
+
+async function openTelegramBind() {
+  try {
+    const { data } = await api.post<{ url: string }>('/api/telegram/deeplink')
+    window.open(data.url, '_blank', 'noopener,noreferrer')
+  } catch {
+    /* */
+  }
+}
+
+onMounted(() => {
+  void auth.fetchMe()
+  void pollDeadline()
+  pollTimer = setInterval(pollDeadline, 8000)
+  const s = ensureConnected()
+  onHackathonEnded = () => {
+    hackathonEnded.value = true
+  }
+  onRatingUpdated = (payload: unknown) => {
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      (payload as { hackathon_ended?: boolean }).hackathon_ended
+    ) {
+      hackathonEnded.value = true
+    }
+  }
+  s.on('hackathon_ended', onHackathonEnded)
+  s.on('rating_updated', onRatingUpdated)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+  const s = ensureConnected()
+  if (onHackathonEnded) s.off('hackathon_ended', onHackathonEnded)
+  if (onRatingUpdated) s.off('rating_updated', onRatingUpdated)
+})
 
 interface LinkItem {
   to: string
@@ -15,6 +72,7 @@ const logoTo = computed(() => (auth.role === 'admin' ? '/admin' : '/'))
 const navMain = computed((): LinkItem[] => [
   { to: '/leaderboard', label: 'Лидерборд' },
   { to: '/podium', label: 'Подиум' },
+  { to: '/cases', label: 'Кейсы' },
   { to: '/timer', label: 'Таймер' },
 ])
 
@@ -48,8 +106,10 @@ const adminMenu = computed((): LinkItem[] => {
   return [
     { to: '/admin', label: 'Панель' },
     { to: '/admin/teams', label: 'Команды' },
+    { to: '/admin/cases', label: 'Кейсы' },
     { to: '/admin/criteria', label: 'Критерии' },
     { to: '/admin/users', label: 'Пользователи' },
+    { to: '/admin/telegram-console', label: 'TG консоль' },
   ]
 })
 
@@ -62,6 +122,7 @@ function closeDetails(ev: MouseEvent) {
 
 async function onLogout() {
   await auth.logout()
+  await router.replace({ path: '/login', query: { redirect: route.fullPath } })
 }
 </script>
 
@@ -139,6 +200,25 @@ async function onLogout() {
             Симпатии
           </RouterLink>
 
+          <RouterLink
+            v-if="auth.role === 'admin'"
+            to="/admin/telegram-console"
+            class="shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 font-mono text-[11px] text-sky-200/95 transition hover:bg-sky-500/20 sm:px-3 sm:text-xs"
+            title="Обзор для админа + ссылка на бота"
+          >
+            TG · админ
+          </RouterLink>
+
+          <button
+            v-if="auth.user"
+            type="button"
+            class="shrink-0 rounded-full border border-sky-400/25 bg-black/30 px-2.5 py-1 font-mono text-[11px] text-sky-300/95 hover:bg-sky-500/15 sm:px-3 sm:text-xs"
+            title="Привязать аккаунт для уведомлений о таймере"
+            @click="openTelegramBind"
+          >
+            TG уведомления
+          </button>
+
           <details v-if="teamMenu.length" class="nav-details group relative">
             <summary
               class="flex cursor-pointer list-none items-center gap-0.5 rounded-full border border-white/10 bg-black/30 px-2.5 py-1 font-mono text-[11px] text-slate-300 hover:border-white/20 hover:text-slate-100 sm:px-3 sm:text-xs"
@@ -198,6 +278,15 @@ async function onLogout() {
       </div>
     </header>
 
+    <div
+      v-if="hackathonEnded"
+      class="border-b border-amber-500/35 bg-gradient-to-r from-amber-950/80 via-slate-950/90 to-amber-950/80 px-4 py-2.5 text-center shadow-lg shadow-amber-900/20"
+    >
+      <p class="font-mono text-xs font-medium text-amber-100">
+        Таймер хакатона завершён. Ссылку на решение команды больше нельзя менять; дедлайн зафиксирован на сервере.
+      </p>
+    </div>
+
     <main
       class="mx-auto max-w-7xl px-3 py-8 pb-20 sm:px-5 sm:py-10 md:px-6"
       style="
@@ -210,7 +299,13 @@ async function onLogout() {
     </main>
 
     <footer class="border-t border-white/5 py-6 text-center font-mono text-[10px] text-slate-600">
-      Хакатон: команды, жюри, зрители · PostgreSQL · обновление рейтинга по WebSocket
+      Хакатон: команды, жюри, зрители · PostgreSQL · обновление рейтинга по WebSocket ·
+      <a
+        :href="`https://t.me/${tgBotUsername}`"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-sky-500/90 underline-offset-2 hover:text-sky-400 hover:underline"
+        >Telegram</a>
     </footer>
   </div>
 </template>
