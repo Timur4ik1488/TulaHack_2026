@@ -5,6 +5,12 @@ import { api } from '../api/http'
 import { useResolvedTeamId } from '../composables/useResolvedTeamId'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 
+interface ExpertLine {
+  expert_username: string
+  value: number
+  comment?: string | null
+}
+
 interface CriterionRow {
   criterion_id: number
   criterion_name: string
@@ -13,6 +19,7 @@ interface CriterionRow {
   avg_expert_score: number
   criterion_fill_percent: number
   weighted_contribution_percent: number
+  expert_lines?: ExpertLine[]
 }
 
 interface Breakdown {
@@ -206,6 +213,20 @@ watch(teamIdNum, async () => {
               :style="{ width: `${Math.min(100, Math.max(0, c.criterion_fill_percent))}%` }"
             />
           </div>
+          <ul
+            v-if="c.expert_lines?.length"
+            class="mt-4 space-y-1.5 border-t border-white/10 pt-4 font-mono text-[11px] text-slate-400"
+          >
+            <li v-for="(ln, idx) in c.expert_lines" :key="idx" class="leading-snug">
+              <span class="text-cyan-200/90">@{{ ln.expert_username }}</span>
+              <span class="text-slate-500"> · </span>
+              <span class="text-amber-200/90">{{ ln.value }}</span>
+              <template v-if="ln.comment">
+                <span class="text-slate-600"> — </span>
+                <span class="text-slate-500">{{ ln.comment }}</span>
+              </template>
+            </li>
+          </ul>
         </li>
       </ul>
 

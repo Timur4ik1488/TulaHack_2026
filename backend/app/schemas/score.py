@@ -1,12 +1,23 @@
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 
 class ScoreCreate(BaseModel):
     team_id: int
     criterion_id: int
     value: float
+    jury_comment: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("jury_comment", mode="before")
+    @classmethod
+    def strip_comment(cls, v: object) -> object:
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            t = v.strip()
+            return t if t else None
+        return v
 
 
 class ScoreRead(ScoreCreate):
@@ -59,6 +70,14 @@ class TeamRatingRead(BaseModel):
         return self.total_percent
 
 
+class TeamScoreCriterionExpertLine(BaseModel):
+    """Одна финальная оценка эксперта по критерию (для капитана в разборе)."""
+
+    expert_username: str
+    value: float
+    comment: Optional[str] = None
+
+
 class TeamScoreCriterionBreakdown(BaseModel):
     criterion_id: int
     criterion_name: str
@@ -69,6 +88,7 @@ class TeamScoreCriterionBreakdown(BaseModel):
     criterion_fill_percent: float
     """Вклад в общий итог команды, п.п. (0–100)."""
     weighted_contribution_percent: float
+    expert_lines: list[TeamScoreCriterionExpertLine] = Field(default_factory=list)
 
 
 class TeamScoreBreakdownRead(BaseModel):
@@ -97,3 +117,4 @@ class ExpertScoreSheetRead(BaseModel):
     max_score: float
     value: float
     is_final: bool
+    jury_comment: Optional[str] = None

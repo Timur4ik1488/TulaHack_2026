@@ -1,5 +1,40 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
+
+const zipBusy = ref(false)
+const zipErr = ref('')
+
+function parseFilenameFromDisposition(cd: string | null): string | null {
+  if (!cd) return null
+  const m = /filename\*?=(?:UTF-8''|")?([^";]+)"?/i.exec(cd)
+  return m ? decodeURIComponent(m[1].replace(/"/g, '')) : null
+}
+
+async function downloadJuryPack() {
+  zipErr.value = ''
+  zipBusy.value = true
+  try {
+    const base = import.meta.env.VITE_API_URL ?? ''
+    const r = await fetch(`${base}/api/scores/jury-pack.zip`, { credentials: 'include' })
+    if (!r.ok) {
+      zipErr.value = 'Не удалось скачать архив.'
+      return
+    }
+    const blob = await r.blob()
+    const name = parseFilenameFromDisposition(r.headers.get('content-disposition')) ?? 'jury_pack.zip'
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    zipErr.value = 'Ошибка сети при скачивании ZIP.'
+  } finally {
+    zipBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -21,6 +56,18 @@ import { RouterLink } from 'vue-router'
         Лента команд → форма по каждому критерию, черновики и финализация
       </span>
     </RouterLink>
+
+    <div class="mb-8 flex flex-col items-center gap-2">
+      <button
+        type="button"
+        class="btn btn-outline border-emerald-500/35 font-mono text-xs text-emerald-200 hover:bg-emerald-500/10"
+        :disabled="zipBusy"
+        @click="downloadJuryPack"
+      >
+        {{ zipBusy ? '…' : 'Пакет жюри: ZIP (Excel по каждому кейсу)' }}
+      </button>
+      <p v-if="zipErr" class="font-mono text-xs text-rose-400">{{ zipErr }}</p>
+    </div>
 
     <div class="grid gap-3 sm:grid-cols-2">
       <RouterLink

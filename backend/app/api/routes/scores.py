@@ -1,6 +1,8 @@
+from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,9 +21,11 @@ from app.schemas.score import (
     TeamRatingRead,
     TeamScoreBreakdownRead,
     TeamScoreCriterionBreakdown,
+    TeamScoreCriterionExpertLine,
 )
 from app.core.config import settings
 from app.scoring import _sympathy_bonus_percent_for_vote_sum, _sympathy_sum_by_team, leaderboard_totals, team_total_percent
+from app.services.jury_pack import build_jury_zip_bytes
 
 router = APIRouter(tags=["scores"])
 
@@ -137,9 +141,20 @@ async def upsert_score(
         )
     )
     row = q.scalar_one_or_none()
+    unset = payload.model_dump(exclude_unset=True)
+    new_comment: str | None = None
+    if "jury_comment" in unset:
+        jc = unset.get("jury_comment")
+        if jc is None or (isinstance(jc, str) and not str(jc).strip()):
+            new_comment = None
+        else:
+            new_comment = str(jc).strip()[:500]
+
     if row:
         row.value = payload.value
         row.is_final = True
+        if "jury_comment" in unset:
+            row.jury_comment = new_comment
     else:
         db.add(
             Score(
@@ -148,6 +163,7 @@ async def upsert_score(
                 criterion_id=payload.criterion_id,
                 value=payload.value,
                 is_final=True,
+                jury_comment=new_comment if "jury_comment" in unset else None,
             )
         )
     await db.commit()
@@ -216,6 +232,24 @@ async def team_score_breakdown(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
     await assert_team_participant_or_jury(db, current_user, team_id)
 
+    expert_stmt = (
+        select(Score.criterion_id, User.username, Score.value, Score.jury_comment)
+        .join(User, User.id == Score.expert_id)
+        .where(Score.team_id == team_id, Score.is_final.is_(True))
+        .order_by(Score.criterion_id, User.username)
+    )
+    expert_rows = (await db.execute(expert_stmt)).all()
+    by_criterion: dict[int, list[TeamScoreCriterionExpertLine]] = defaultdict(list)
+    for cid, uname, val, jcom in expert_rows:
+        cmt = (str(jcom).strip() if jcom is not None else "") or None
+        by_criterion[int(cid)].append(
+            TeamScoreCriterionExpertLine(
+                expert_username=str(uname),
+                value=round(float(val), 2),
+                comment=cmt,
+            )
+        )
+
     stmt = (
         select(
             Criterion.id,
@@ -248,6 +282,7 @@ async def team_score_breakdown(
                 avg_expert_score=round(avg_f, 2),
                 criterion_fill_percent=fill,
                 weighted_contribution_percent=contrib,
+                expert_lines=by_criterion.get(int(cid), []),
             )
         )
 
@@ -285,6 +320,7 @@ async def my_scores(
             Criterion.max_score,
             Score.value,
             Score.is_final,
+            Score.jury_comment,
         )
         .join(Criterion, Criterion.id == Score.criterion_id)
         .where(Score.expert_id == current_user.id)
@@ -301,6 +337,20 @@ async def my_scores(
             max_score=float(r[3]),
             value=float(r[4]),
             is_final=bool(r[5]),
+            jury_comment=(str(r[6]).strip() if r[6] is not None else None) or None,
         )
         for r in result.all()
     ]
+
+
+@router.get("/jury-pack.zip")
+async def download_jury_pack_zip(
+    db: AsyncSession = Depends(get_async_db),
+    _: User = Depends(is_user_expert),
+) -> StreamingResponse:
+    body, filename = await build_jury_zip_bytes(db)
+    return StreamingResponse(
+        iter([body]),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

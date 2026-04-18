@@ -33,6 +33,7 @@ const teamId = computed(() => Number(route.params.id))
 const team = ref<TeamCard | null>(null)
 const criteria = ref<Criterion[]>([])
 const values = reactive<Record<number, number>>({})
+const comments = reactive<Record<number, string>>({})
 const busy = ref(false)
 const msg = ref('')
 const teamErr = ref('')
@@ -65,6 +66,31 @@ async function loadCriteria() {
     if (values[c.id] === undefined) {
       values[c.id] = 0
     }
+    if (comments[c.id] === undefined) {
+      comments[c.id] = ''
+    }
+  }
+}
+
+interface MineRow {
+  team_id: number
+  criterion_id: number
+  criterion_name: string
+  max_score: number
+  value: number
+  is_final: boolean
+  jury_comment?: string | null
+}
+
+async function loadMineForTeam() {
+  try {
+    const { data } = await api.get<MineRow[]>(`/api/scores/mine?team_id=${teamId.value}`)
+    for (const r of data) {
+      values[r.criterion_id] = r.value
+      comments[r.criterion_id] = r.jury_comment?.trim() ? r.jury_comment : ''
+    }
+  } catch {
+    /* нет листа — оставляем нули */
   }
 }
 
@@ -81,17 +107,21 @@ async function loadSympathyTotal() {
 }
 
 async function loadAll() {
-  await Promise.all([loadTeam(), loadCriteria(), loadSympathyTotal()])
+  await loadTeam()
+  await loadCriteria()
+  await Promise.all([loadSympathyTotal(), loadMineForTeam()])
 }
 
 async function saveCriterion(criterionId: number) {
   busy.value = true
   msg.value = ''
   try {
+    const jc = (comments[criterionId] ?? '').trim()
     await api.post('/api/scores/', {
       team_id: teamId.value,
       criterion_id: criterionId,
       value: values[criterionId],
+      jury_comment: jc.length ? jc : null,
     })
     msg.value = 'Черновик сохранён'
   } catch {
@@ -234,6 +264,16 @@ watch(teamId, loadAll)
           <span>0</span>
           <span>{{ c.max_score }}</span>
         </div>
+        <label class="mt-4 block font-mono text-[10px] uppercase tracking-wider text-slate-500">
+          комментарий к критерию (1 строка, опционально)
+        </label>
+        <input
+          v-model="comments[c.id]"
+          type="text"
+          maxlength="500"
+          class="input input-bordered input-sm mt-1.5 w-full border-white/10 bg-slate-950/50 font-mono text-sm text-slate-200 placeholder:text-slate-600"
+          placeholder="коротко для капитана в разборе…"
+        />
         <button
           type="button"
           class="btn btn-sm mt-4 w-full border border-white/10 bg-white/5 font-mono text-xs text-cyan-200 hover:bg-cyan-500/10"
