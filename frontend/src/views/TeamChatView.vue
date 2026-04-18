@@ -105,7 +105,7 @@ function rolePillClass(label: string, mine: boolean) {
 <template>
   <div class="mx-auto flex max-w-3xl flex-col gap-6">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// чат команды</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">чат · штаб команды</p>
       <h1
         class="bg-gradient-to-r from-cyan-200 via-white to-rose-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
       >

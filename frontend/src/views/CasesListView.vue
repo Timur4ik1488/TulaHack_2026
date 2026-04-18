@@ -31,7 +31,7 @@ onMounted(async () => {
 <template>
   <div class="mx-auto max-w-3xl">
     <div class="mb-8 text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// кейсы хакатона</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">треки · задания</p>
       <h1 class="text-3xl font-bold tracking-tight text-slate-100">Кейсы</h1>
       <p class="mt-2 text-sm text-slate-500">Номер, название, компания — у каждого кейса своя страница со списком команд.</p>
     </div>

@@ -260,7 +260,7 @@ onUnmounted(() => {
     <!-- Staff: админ / жюри — без обязательной команды -->
     <template v-if="isStaff && auth.user">
       <div class="mb-8 text-center">
-        <p class="mb-2 font-mono text-xs text-rose-400/80">// аккаунт</p>
+        <p class="mb-2 font-mono text-xs text-rose-400/80">профиль · аккаунт</p>
         <h1
           class="bg-gradient-to-r from-rose-200 via-amber-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
         >
@@ -433,7 +433,7 @@ onUnmounted(() => {
       </div>
 
       <div class="mb-8 text-center">
-        <p class="mb-2 font-mono text-xs text-cyan-500/80">// моя команда</p>
+        <p class="mb-2 font-mono text-xs text-cyan-500/80">моя команда · HQ</p>
         <h1
           class="bg-gradient-to-r from-cyan-200 via-white to-emerald-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
         >
@@ -643,7 +643,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <p class="mt-8 font-mono text-[10px] uppercase tracking-widest text-cyan-500/75">// участники аккаунта</p>
+            <p class="mt-8 font-mono text-[10px] uppercase tracking-widest text-cyan-500/75">участники</p>
             <h3 class="mt-1 text-lg font-semibold text-slate-100">Кто в проекте</h3>
             <ul class="mt-4 grid gap-3 sm:grid-cols-2">
               <li

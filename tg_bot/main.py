@@ -1,6 +1,12 @@
 """
 HackSwipeBot: polling + уведомления за 1 ч, 15 мин и в момент окончания таймера
 (синхронизация с GET /api/timer/ бэкенда). Команды — через POST /api/telegram/internal/bot-dispatch.
+
+DEPLOY (прод, только комментарий — не меняет код):
+  В Docker задайте API_BASE_URL на сервис бэкенда (compose: http://backend:8000).
+  Если бот когда-нибудь запускается на том же хосте, что API, без compose: API_BASE_URL=http://127.0.0.1:8000
+  Публичный сервер приложений 150.241.103.30 — для бота важен именно URL API, не IP фронта.
+  БД 150.241.103.30:5435 относится только к backend .env (POSTGRES_* / DATABASE_URL).
 """
 
 from __future__ import annotations

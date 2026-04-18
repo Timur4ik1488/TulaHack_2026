@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '../api/http'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
@@ -33,11 +33,14 @@ const form = reactive({
   members: '',
   contact: '',
   description: '',
-  case_number: '' as string | number,
+  /** '' — без кейса; иначе ordinal кейса (строка для select). */
+  caseOrdinal: '' as string,
   photo_url: '',
 })
 const busy = ref(false)
 const formMsg = ref('')
+
+const casesSorted = computed(() => [...cases.value].sort((a, b) => a.ordinal - b.ordinal))
 
 function caseForTeam(t: Team): CaseRow | null {
   if (t.case_number == null) return null
@@ -66,14 +69,14 @@ async function createTeam() {
       members: form.members,
       contact: form.contact,
       description: form.description || null,
-      case_number: form.case_number === '' ? null : Number(form.case_number),
+      case_number: form.caseOrdinal === '' ? null : Number(form.caseOrdinal),
       photo_url: form.photo_url || null,
     })
     form.name = ''
     form.members = ''
     form.contact = ''
     form.description = ''
-    form.case_number = ''
+    form.caseOrdinal = ''
     form.photo_url = ''
     formMsg.value = 'Команда создана'
     await load()
@@ -107,7 +110,8 @@ onMounted(load)
         Команды
       </h1>
       <p class="mx-auto mt-3 max-w-lg text-sm text-slate-500">
-        Создание команды в том же визуальном ключе, что и остальной HackSwipe: тёмные панели, неоновые акценты, без «чужого» light-card.
+        Новая команда появляется в общем стеке: карточка, инвайт капитану, кейс из списка — без ручных «номеров из
+        головы».
       </p>
     </div>
 
@@ -122,7 +126,9 @@ onMounted(load)
         class="border-b border-white/10 bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-cyan-500/15 px-6 py-4"
       >
         <h2 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-200">Новая команда</h2>
-        <p class="mt-1 text-xs text-slate-500">POST /api/teams/ — после сохранения появится инвайт у капитана при регистрации.</p>
+        <p class="mt-1 text-xs text-slate-500">
+          После «создать» у капитана при регистрации появится инвайт — кидай ссылку в чат, не объясняя SQL.
+        </p>
       </div>
       <div class="grid gap-4 p-6 md:grid-cols-2">
         <label class="block md:col-span-2">
@@ -157,14 +163,20 @@ onMounted(load)
             placeholder="Кратко о проекте (опционально)"
           />
         </label>
-        <label class="block">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">номер кейса</span>
-          <input
-            v-model="form.case_number"
-            type="number"
-            class="input w-full border-white/10 bg-black/40 font-mono text-slate-100"
-            placeholder="—"
-          />
+        <label class="block md:col-span-2">
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">кейс</span>
+          <select
+            v-model="form.caseOrdinal"
+            class="hs-select input w-full border-white/15 bg-slate-900/95 py-3 font-sans text-sm text-slate-100 focus:border-amber-500/40"
+          >
+            <option value="">Без кейса</option>
+            <option v-for="c in casesSorted" :key="c.id" :value="String(c.ordinal)">
+              {{ c.title }} — {{ c.company_name }}
+            </option>
+          </select>
+          <span v-if="!casesSorted.length" class="mt-1 block text-xs text-amber-200/80">
+            Кейсов ещё нет — сначала заведи треки в админке «Кейсы», потом вернись сюда и привяжи команду.
+          </span>
         </label>
         <label class="block">
           <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">URL фото</span>

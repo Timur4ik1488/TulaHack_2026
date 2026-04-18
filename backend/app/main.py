@@ -63,6 +63,23 @@ fastapi_app.add_middleware(
     allow_headers=["*"],
 )
 
+# =============================================================================
+# DEPLOY (прод): при выкладке за nginx/Traefik с TLS — раскомментировать по необходимости.
+# Не включать на локалке без настройки trusted_hosts / прокси.
+#
+# from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+# fastapi_app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="150.241.103.30,ваш-домен.ru")
+#
+# from starlette.middleware.trustedhost import TrustedHostMiddleware
+# fastapi_app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=["150.241.103.30", "ваш-домен.ru", "localhost", "127.0.0.1"],
+# )
+#
+# from starlette.middleware.gzip import GZipMiddleware
+# fastapi_app.add_middleware(GZipMiddleware, minimum_size=500)
+# =============================================================================
+
 
 @fastapi_app.get("/health", include_in_schema=False)
 async def health() -> dict[str, str]:

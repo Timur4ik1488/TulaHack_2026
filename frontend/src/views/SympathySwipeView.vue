@@ -129,7 +129,7 @@ watch(index, (i) => {
 async function loadLeaderboard() {
   try {
     const { data } = await api.get<{ rows: LbRow[] }>('/api/sympathy/leaderboard')
-    leaderboard.value = (data.rows ?? []).slice(0, 8)
+    leaderboard.value = data.rows ?? []
   } catch {
     /* не затираем предыдущий топ при сбое сети */
   }
@@ -206,18 +206,18 @@ async function postVote(value: -1 | 1) {
 <template>
   <div class="mx-auto max-w-xl">
     <div class="mb-6 text-center">
-      <p class="mb-2 font-mono text-xs text-violet-400/90">// зрительские симпатии · не жюри</p>
+      <p class="mb-2 font-mono text-xs text-violet-400/90">аудитория · не жюри</p>
       <h1 class="text-3xl font-bold tracking-tight text-slate-100">Симпатии</h1>
       <p class="mt-2 text-sm text-slate-500">
-        Только <span class="font-mono text-violet-300">+1</span> или
-        <span class="font-mono text-violet-300">−1</span> — общее впечатление о команде. Новый голос по команде
-        <span class="text-slate-400">заменяет</span> предыдущий (не суммируется).
+        Свайп или кнопки: <span class="font-mono text-violet-300">+1</span> /
+        <span class="font-mono text-violet-300">−1</span> за общий вайб. Переголосуешь по той же команде —
+        <span class="text-slate-400">считается последний выбор</span>, стек не копится.
       </p>
     </div>
 
     <div
       v-if="teams.length"
-      class="mx-auto mb-4 flex max-w-xl flex-wrap items-center justify-center gap-2 px-1 font-mono text-[10px]"
+      class="mx-auto mb-4 flex max-w-xl flex-nowrap items-center justify-start gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 font-mono text-[10px] sm:flex-wrap sm:justify-center"
     >
       <button
         type="button"
@@ -350,10 +350,12 @@ async function postVote(value: -1 | 1) {
 
     <div class="mt-10 rounded-2xl border border-white/10 bg-slate-900/40 p-4">
       <h3 class="mb-3 font-mono text-xs uppercase tracking-wider text-slate-500">Топ по симпатиям</h3>
-      <ol class="space-y-1.5 font-mono text-sm">
-        <li v-for="(r, i) in leaderboard" :key="r.team_id" class="flex justify-between text-slate-300">
-          <span>{{ i + 1 }}. {{ r.team_name }}</span>
-          <span class="text-violet-300">{{ r.score > 0 ? '+' : '' }}{{ r.score }}</span>
+      <ol
+        class="max-h-72 space-y-1.5 overflow-y-auto overscroll-contain pr-1 font-mono text-sm"
+      >
+        <li v-for="(r, i) in leaderboard" :key="r.team_id" class="flex justify-between gap-3 text-slate-300">
+          <span class="min-w-0 truncate">{{ i + 1 }}. {{ r.team_name }}</span>
+          <span class="shrink-0 text-violet-300">{{ r.score > 0 ? '+' : '' }}{{ r.score }}</span>
         </li>
       </ol>
     </div>

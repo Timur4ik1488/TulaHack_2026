@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +18,7 @@ from app.core.timer_helpers import submission_window_open
 from app.core.team_invite import generate_unique_invite_code
 from app.db.db import get_async_db
 from app.models.message import Message
+from app.models.project_case import ProjectCase
 from app.models.score import Score
 from app.models.team import Team
 from app.models.team_member import TeamMember, TeamMemberRole
@@ -299,6 +300,8 @@ async def update_team(
     data = payload.model_dump(exclude_unset=True)
     if not data:
         return team
+    if "case_number" in data:
+        await _assert_case_number_exists(db, data["case_number"])
     if "name" in data:
         exists = await db.execute(
             select(Team).where(Team.name == data["name"], Team.id != team_id)

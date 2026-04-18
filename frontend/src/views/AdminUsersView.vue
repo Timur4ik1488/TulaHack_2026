@@ -122,7 +122,7 @@ onMounted(load)
     <section
       class="mx-auto max-w-xl rounded-3xl border border-cyan-500/20 bg-slate-900/50 p-6 shadow-xl backdrop-blur-md sm:p-8"
     >
-      <p class="mb-1 font-mono text-xs text-cyan-500/80">// создать пользователя</p>
+      <p class="mb-1 font-mono text-xs text-cyan-500/80">админ · новый юзер</p>
       <h2 class="text-lg font-semibold text-slate-100">Новый пользователь</h2>
       <p class="mt-1 text-xs text-slate-500">Пароль не короче 8 символов. Роль по умолчанию — expert.</p>
       <form class="mt-5 space-y-4" @submit.prevent="createUser">

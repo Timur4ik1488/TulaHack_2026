@@ -1,3 +1,40 @@
+# =============================================================================
+# DEPLOY (прод): раскомментируйте нужное; для локальной разработки всё ниже
+# остаётся выключенным. Часто используют: отдельный compose.override.yml
+# (`docker compose -f compose.yml -f compose.prod.yml up -d`).
+#
+#   # Пример ограничений ресурсов backend:
+#   # deploy:
+#   #   resources:
+#   #     limits: { cpus: "1.0", memory: 512M }
+#   #     reservations: { cpus: "0.25", memory: 256M }
+#
+#   # Логи в JSON для Loki/Datadog (драйвер на хосте должен быть настроен):
+#   # logging:
+#   #   driver: json-file
+#   #   options: { max-size: "10m", max-file: "3" }
+#
+#   # Только внутренняя сеть без публикации порта Postgres наружу:
+#   # ports: []  # у сервиса db — не маппить 5432 на хост
+#
+#   # Прод-оверлей HTTPS: вынести nginx за reverse-proxy (Traefik/Caddy) или
+#   # см. закомментированный server { listen 443 ssl } в frontend/nginx/default.conf
+#
+#   # BOOTSTRAP_ADMIN=false в .env на проде после создания админа.
+#
+# --- Ваш прод-хост (только подсказка в комментариях; значения задаёте в .env) ---
+# PostgreSQL на сервере 150.241.103.30, порт 5435 (не меняйте compose, пока локально):
+#   POSTGRES_HOST=150.241.103.30
+#   POSTGRES_PORT=5435
+#   POSTGRES_USER=...
+#   POSTGRES_PASSWORD=...   # не коммитить
+#   POSTGRES_DB=...
+# Публичный URL фронта для бота и CORS (пример):
+#   PUBLIC_SITE_URL=http://150.241.103.30
+# CORS: добавить в CORS_ORIGINS тот же origin (см. backend app/core/config.py — комментарии DEPLOY).
+# Если понадобится: SSL-сертификаты, firewall (5435 только для IP бэкенда), отдельный домен — допишите сюда.
+# =============================================================================
+
 networks:
   dev:
     driver: bridge
@@ -46,7 +83,11 @@ services:
       dockerfile: Dockerfile
     container_name: tule_backend
     restart: unless-stopped
+    # DEPLOY: сменить образ на фиксированный тег / digest после CI.
+    # image: registry.example.com/tulahack-backend:${GIT_SHA:-latest}
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    # DEPLOY: без --reload; при желании workers (нужен gunicorn+uvicorn.worker):
+    # command: sh -c "alembic upgrade head && gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 4 -b 0.0.0.0:8000"
     volumes:
       # Код в контейнере: /app/app/... — статика монтируется туда же, иначе загрузки не попадают на хост.
       - ./backend/app/static:/app/app/static
@@ -55,6 +96,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    # DEPLOY: строка выше не меняется; в корневом .env задать POSTGRES_HOST=150.241.103.30 POSTGRES_PORT=5435 и учётку БД.
     healthcheck:
       test:
         [
@@ -69,6 +111,8 @@ services:
       start_period: 90s
     ports:
       - 8000:8000
+    # DEPLOY: не публиковать 8000 наружу — только nginx → backend по сети:
+    # ports: []
     networks:
       - dev
 
@@ -158,6 +202,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    # DEPLOY: пин образа фронта из registry.
+    # image: registry.example.com/tulahack-frontend:${GIT_SHA:-latest}
     container_name: nginx_hack_2026
     restart: unless-stopped
     volumes:
@@ -166,6 +212,13 @@ services:
       - ./frontend/nginx/logs:/var/log/nginx
     ports:
       - "80:80"
+    # DEPLOY: HTTPS на хосте — проброс 443 и volume с сертификатами; см. default.conf
+    # ports:
+    #   - "80:80"
+    #   - "443:443"
+    # volumes:
+    #   - ./infra/ssl/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
+    #   - ./infra/ssl/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -173,6 +226,10 @@ services:
         condition: service_started
     networks:
       - dev
+
+# DEPLOY: секреты не хранить в git — использовать Docker secrets / external vault.
+# DEPLOY: для одного хоста — `docker compose pull && docker compose up -d --remove-orphans`.
+# DEPLOY: мониторинг наружу не открывать — убрать ports у prometheus/grafana или firewall.
 
 volumes:
   loki_data:

@@ -91,4 +91,22 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 
+# =============================================================================
+# DEPLOY (прод): не раскомментировать код ниже на локалке — только копировать в .env / править строки выше.
+# Сервер: 150.241.103.30 ; PostgreSQL на порту 5435 — задаётся через POSTGRES_* или DATABASE_URL в .env.
+#
+# В .env на проде дополнительно (примеры значений — подставить свои):
+#   DEBUG=false
+#   BOOTSTRAP_ADMIN=false
+#   COOKIE_SECURE=true
+#   COOKIE_SAMESITE=none   # если фронт и API на разных поддоменах и HTTPS
+#   PUBLIC_SITE_URL=http://150.241.103.30
+#
+# CORS_ORIGINS: добавить origin фронта, например:
+#   CORS_ORIGINS=http://150.241.103.30,https://150.241.103.30,http://localhost:5173
+# (длинная строка через запятую; локальные origin можно убрать на проде.)
+#
+# Если понадобится TrustedHostMiddleware / ProxyHeaders — см. комментарии в app/main.py (DEPLOY).
+# =============================================================================
+
 settings = Settings()

@@ -29,7 +29,7 @@ async def cast_sympathy_vote(
     payload: SympathyVoteCreate,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
-) -> SympathyVote:
+) -> SympathyVoteRead:
     if payload.value not in (-1, 1):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="value must be -1 or 1")
     team = await db.get(Team, payload.team_id)
@@ -56,7 +56,8 @@ async def cast_sympathy_vote(
         db.add(row)
     await db.commit()
     await db.refresh(row)
-    # После commit снимаем устаревший identity map — иначе агрегаты симпатий иногда читаются «пустыми».
+    # Сериализуем до expire_all: иначе ORM-атрибуты тянут lazy-IO вне greenlet (ResponseValidationError).
+    out = SympathyVoteRead(team_id=row.team_id, dimension=row.dimension, value=row.value)
     db.expire_all()
     rows = await leaderboard_totals(db)
     for r in rows:
@@ -72,7 +73,7 @@ async def cast_sympathy_vote(
             break
     else:
         await sio.emit("rating_updated", {"team_id": payload.team_id, "sympathy": True})
-    return row
+    return out
 
 
 @router.get("/team/{team_id}/total", response_model=SympathyTeamTotal)

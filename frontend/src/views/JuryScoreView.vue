@@ -107,15 +107,15 @@ watch(teamId, loadAll)
 <template>
   <div class="mx-auto max-w-3xl space-y-8">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// жюри · форма оценки</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">жюри · карточка оценки</p>
       <h1
         class="bg-gradient-to-r from-cyan-200 via-white to-rose-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
       >
         Оценка команды
       </h1>
       <p class="mt-3 text-sm text-slate-500">
-        Ползунок — балл по критерию. «Сохранить черновик» — в БД без финала. В конце —
-        <span class="font-mono text-rose-300/90">зафиксировать команду</span>.
+        Ползунок — твой голос по критерию. «Черновик» можно крутить сколько угодно; когда уверен —
+        <span class="font-mono text-rose-300/90">зафиксировать команду</span> и закрыть сделку.
       </p>
     </div>
 
@@ -163,7 +163,7 @@ watch(teamId, loadAll)
           <span
             v-if="sympathyTotal !== null"
             class="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 font-mono text-xs text-violet-200"
-            title="Сумма зрительских симпатий (±1), не входит в баллы жюри"
+            title="Вайб зала: ±1 от зрителей, к жюри не прибавляется"
           >
             Симпатии
             <span class="ml-1 text-violet-100">{{ sympathyTotal > 0 ? '+' : '' }}{{ sympathyTotal }}</span>

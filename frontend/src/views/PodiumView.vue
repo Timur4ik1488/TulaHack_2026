@@ -61,7 +61,7 @@ onUnmounted(() => {
 <template>
   <div class="px-1 sm:px-0">
     <div class="mb-10 text-center">
-      <p class="mb-2 font-mono text-xs text-amber-400/80">// топ-3</p>
+      <p class="mb-2 font-mono text-xs text-amber-400/80">подиум · топ-3</p>
       <h1 class="text-3xl font-bold text-slate-100 sm:text-4xl">Топ-3 команд</h1>
       <p class="mx-auto mt-3 max-w-md text-sm text-slate-500">
         Топ-3 по итогу лидерборда: жюри плюс бонус зрительских симпатий. Клик по названию — публичная карточка.

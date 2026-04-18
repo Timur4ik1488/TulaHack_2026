@@ -70,10 +70,11 @@ onUnmounted(() => {
 <template>
   <div>
     <div class="mb-8 text-center">
-      <p class="mb-2 font-mono text-xs text-emerald-500/80">// обновление рейтинга в реальном времени</p>
+      <p class="mb-2 font-mono text-xs text-emerald-500/80">лайв-табло · без F5</p>
       <h1 class="text-3xl font-bold tracking-tight text-slate-100">Лидерборд команд</h1>
       <p class="mt-2 text-sm text-slate-500">
-        Итог: жюри + зрительские симпатии (бонус до нескольких п.п.). Обновление по WebSocket.
+        Жюри задаёт жёсткий скор, зрители подмешивают симпатию — вместе это и есть текущий топ. Строчки подпрыгивают
+        сами, пока идёт хакатон.
       </p>
     </div>
     <p v-if="err" class="mb-4 text-center font-mono text-sm text-rose-400">{{ err }}</p>

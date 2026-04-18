@@ -9,6 +9,8 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const hackathonEnded = ref(false)
+const teamNavEl = ref<HTMLDetailsElement | null>(null)
+const adminNavEl = ref<HTMLDetailsElement | null>(null)
 const { ensureConnected } = useSocket()
 const tgBotUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'HackSwipeBot'
 
@@ -120,6 +122,16 @@ function closeDetails(ev: MouseEvent) {
   }
 }
 
+function onTeamNavToggle(ev: Event) {
+  const d = ev.target as HTMLDetailsElement
+  if (d.open && adminNavEl.value) adminNavEl.value.open = false
+}
+
+function onAdminNavToggle(ev: Event) {
+  const d = ev.target as HTMLDetailsElement
+  if (d.open && teamNavEl.value) teamNavEl.value.open = false
+}
+
 async function onLogout() {
   await auth.logout()
   await router.replace({ path: '/login', query: { redirect: route.fullPath } })
@@ -219,7 +231,12 @@ async function onLogout() {
             TG уведомления
           </button>
 
-          <details v-if="teamMenu.length" class="nav-details group relative">
+          <details
+            v-if="teamMenu.length"
+            ref="teamNavEl"
+            class="nav-details group relative"
+            @toggle="onTeamNavToggle"
+          >
             <summary
               class="flex cursor-pointer list-none items-center gap-0.5 rounded-full border border-white/10 bg-black/30 px-2.5 py-1 font-mono text-[11px] text-slate-300 hover:border-white/20 hover:text-slate-100 sm:px-3 sm:text-xs"
             >
@@ -227,7 +244,7 @@ async function onLogout() {
               <span class="text-[9px] text-slate-500 transition group-open:rotate-180">▼</span>
             </summary>
             <div
-              class="absolute right-0 top-[calc(100%+0.35rem)] z-[100] min-w-[11.5rem] rounded-xl border border-white/10 bg-slate-950/95 py-1 shadow-xl ring-1 ring-black/40 backdrop-blur-md"
+              class="absolute right-0 top-[calc(100%+0.35rem)] z-[100] min-w-[11.5rem] rounded-xl border border-white/15 bg-slate-950 py-1 shadow-2xl shadow-black/60 ring-1 ring-cyan-500/15"
             >
               <RouterLink
                 v-for="t in teamMenu"
@@ -242,7 +259,12 @@ async function onLogout() {
             </div>
           </details>
 
-          <details v-if="adminMenu.length" class="nav-details group relative">
+          <details
+            v-if="adminMenu.length"
+            ref="adminNavEl"
+            class="nav-details group relative"
+            @toggle="onAdminNavToggle"
+          >
             <summary
               class="flex cursor-pointer list-none items-center gap-0.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 font-mono text-[11px] text-amber-200/90 hover:border-amber-400/40 sm:px-3 sm:text-xs"
             >
@@ -250,7 +272,7 @@ async function onLogout() {
               <span class="text-[9px] text-amber-400/70 transition group-open:rotate-180">▼</span>
             </summary>
             <div
-              class="absolute right-0 top-[calc(100%+0.35rem)] z-[100] min-w-[11.5rem] rounded-xl border border-amber-500/20 bg-slate-950/95 py-1 shadow-xl ring-1 ring-black/40 backdrop-blur-md"
+              class="absolute right-0 top-[calc(100%+0.35rem)] z-[100] min-w-[11.5rem] rounded-xl border border-amber-500/30 bg-slate-950 py-1 shadow-2xl shadow-black/60 ring-1 ring-amber-500/20"
             >
               <RouterLink
                 v-for="a in adminMenu"
@@ -283,7 +305,7 @@ async function onLogout() {
       class="border-b border-amber-500/35 bg-gradient-to-r from-amber-950/80 via-slate-950/90 to-amber-950/80 px-4 py-2.5 text-center shadow-lg shadow-amber-900/20"
     >
       <p class="font-mono text-xs font-medium text-amber-100">
-        Таймер хакатона завершён. Ссылку на решение команды больше нельзя менять; дедлайн зафиксирован на сервере.
+        Таймер обнулился — дедлайн закрыт. Ссылку на решение для жюри больше не подкрутить, фиксируем как есть.
       </p>
     </div>
 
@@ -299,7 +321,7 @@ async function onLogout() {
     </main>
 
     <footer class="border-t border-white/5 py-6 text-center font-mono text-[10px] text-slate-600">
-      Хакатон: команды, жюри, зрители · PostgreSQL · обновление рейтинга по WebSocket ·
+      HackSwipe — команды, жюри, зал · рейтинг держится в одном ритме ·
       <a
         :href="`https://t.me/${tgBotUsername}`"
         target="_blank"

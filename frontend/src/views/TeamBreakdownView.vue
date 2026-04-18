@@ -74,7 +74,7 @@ watch(teamIdNum, async () => {
 <template>
   <div class="mx-auto max-w-4xl">
     <div class="mb-8 text-center">
-      <p class="mb-2 font-mono text-xs text-rose-400/80">// разбор баллов по критериям</p>
+      <p class="mb-2 font-mono text-xs text-rose-400/80">разбор · откуда взялись баллы</p>
       <h1 class="bg-gradient-to-r from-rose-200 via-amber-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
         Оценки команды
       </h1>

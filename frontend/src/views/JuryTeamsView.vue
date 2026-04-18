@@ -43,7 +43,7 @@ function progressForTeam(teamId: number) {
 <template>
   <div class="mx-auto max-w-6xl">
     <div class="mb-10 text-center">
-      <p class="mb-2 font-mono text-xs text-rose-400/80">// жюри · основной поток оценки</p>
+      <p class="mb-2 font-mono text-xs text-rose-400/80">жюри · основной поток</p>
       <h1
         class="bg-gradient-to-r from-rose-200 via-amber-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl"
       >
