@@ -13,6 +13,11 @@ interface Row {
   total_percent: number
 }
 
+function formatSympathyBonus(p: number) {
+  const sign = p > 0 ? '+' : p < 0 ? '−' : ''
+  return `${sign}${Math.abs(p).toFixed(2)}%`
+}
+
 const rows = ref<Row[]>([])
 const err = ref('')
 const { ensureConnected } = useSocket()
@@ -89,7 +94,7 @@ onUnmounted(() => {
         </h2>
         <p class="font-mono text-2xl font-bold tabular-nums text-emerald-400 sm:text-3xl">{{ r.total_percent.toFixed(2) }}%</p>
         <p class="mt-2 font-mono text-[10px] leading-relaxed text-slate-500">
-          жюри {{ (r.jury_percent ?? 0).toFixed(2) }}% · симп. +{{ (r.sympathy_bonus_percent ?? 0).toFixed(2) }}%
+          жюри {{ (r.jury_percent ?? 0).toFixed(2) }}% · симп. {{ formatSympathyBonus(r.sympathy_bonus_percent ?? 0) }}
         </p>
       </div>
     </div>

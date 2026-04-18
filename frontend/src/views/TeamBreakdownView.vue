@@ -5,6 +5,12 @@ import { api } from '../api/http'
 import { useResolvedTeamId } from '../composables/useResolvedTeamId'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 
+interface ExpertLine {
+  expert_username: string
+  value: number
+  comment?: string | null
+}
+
 interface CriterionRow {
   criterion_id: number
   criterion_name: string
@@ -13,6 +19,7 @@ interface CriterionRow {
   avg_expert_score: number
   criterion_fill_percent: number
   weighted_contribution_percent: number
+  expert_lines?: ExpertLine[]
 }
 
 interface Breakdown {
@@ -41,10 +48,15 @@ function formatSympathyVotes(n: number) {
   return n > 0 ? `+${n}` : String(n)
 }
 
+function formatSympathyBonusLine(p: number) {
+  const sign = p > 0 ? '+' : p < 0 ? '−' : ''
+  return `${sign}${Math.abs(p).toFixed(2)}%`
+}
+
 function sympathyBarPercent(d: Breakdown) {
   const cap = d.sympathy_cap_percent || 0.001
   const b = d.sympathy_bonus_percent || 0
-  return Math.min(100, Math.max(0, (100 * b) / cap))
+  return Math.min(100, Math.max(0, (100 * Math.abs(b)) / cap))
 }
 
 async function load() {
@@ -142,7 +154,7 @@ watch(teamIdNum, async () => {
             Жюри (критерии):
             <span class="font-mono text-rose-200/90">{{ data.total_percent.toFixed(2) }}%</span>
             · Симпатии:
-            <span class="font-mono text-violet-200/90">+{{ (data.sympathy_bonus_percent ?? 0).toFixed(2) }}%</span>
+            <span class="font-mono text-violet-200/90">{{ formatSympathyBonusLine(data.sympathy_bonus_percent ?? 0) }}</span>
             <span v-if="(data.sympathy_votes_sum ?? 0) !== 0" class="text-slate-500">
               (голосов {{ formatSympathyVotes(data.sympathy_votes_sum ?? 0) }})
             </span>
@@ -157,11 +169,11 @@ watch(teamIdNum, async () => {
           <div>
             <p class="font-medium text-violet-100">Зрительские симпатии</p>
             <p class="mt-0.5 font-mono text-xs text-slate-500">
-              не жюри · до {{ (data.sympathy_cap_percent ?? 0).toFixed(1) }} п.п. к итогу лидерборда
+              не жюри · 1 к сумме голосов = 0,5 п.п. к итогу лидерборда
             </p>
           </div>
           <div class="text-right">
-            <p class="font-mono text-sm text-violet-200">+{{ (data.sympathy_bonus_percent ?? 0).toFixed(2) }}%</p>
+            <p class="font-mono text-sm text-violet-200">{{ formatSympathyBonusLine(data.sympathy_bonus_percent ?? 0) }}</p>
             <p class="font-mono text-xs text-slate-500">сумма голосов {{ formatSympathyVotes(data.sympathy_votes_sum ?? 0) }}</p>
           </div>
         </div>
@@ -201,6 +213,20 @@ watch(teamIdNum, async () => {
               :style="{ width: `${Math.min(100, Math.max(0, c.criterion_fill_percent))}%` }"
             />
           </div>
+          <ul
+            v-if="c.expert_lines?.length"
+            class="mt-4 space-y-1.5 border-t border-white/10 pt-4 font-mono text-[11px] text-slate-400"
+          >
+            <li v-for="(ln, idx) in c.expert_lines" :key="idx" class="leading-snug">
+              <span class="text-cyan-200/90">@{{ ln.expert_username }}</span>
+              <span class="text-slate-500"> · </span>
+              <span class="text-amber-200/90">{{ ln.value }}</span>
+              <template v-if="ln.comment">
+                <span class="text-slate-600"> — </span>
+                <span class="text-slate-500">{{ ln.comment }}</span>
+              </template>
+            </li>
+          </ul>
         </li>
       </ul>
 

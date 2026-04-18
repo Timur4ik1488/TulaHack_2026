@@ -78,6 +78,31 @@ class TeamPublicRead(BaseModel):
         return settings.DEFAULT_TEAM_PHOTO_URL
 
 
+class TeamMemberPublicOut(BaseModel):
+    """Состав команды для публичных карточек (без email)."""
+
+    username: str
+    role: str
+
+
+class TeamCaseCardBrief(BaseModel):
+    """Кейс для публичной карточки команды (ссылка с фронта: /cases/{case_id})."""
+
+    case_id: int
+    ordinal: int
+    title: str
+    company_name: str
+    description: Optional[str] = None
+
+
+class TeamPublicCardRead(TeamPublicRead):
+    """Карточка в лентах: кейс (номер) + участники."""
+
+    case_ordinal: Optional[int] = None
+    members: List[TeamMemberPublicOut] = Field(default_factory=list)
+    case_card: Optional[TeamCaseCardBrief] = None
+
+
 class TeamRead(TeamCreate):
     model_config = ConfigDict(from_attributes=True)
 

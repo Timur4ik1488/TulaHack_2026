@@ -74,6 +74,7 @@ const logoTo = computed(() => (auth.role === 'admin' ? '/admin' : '/'))
 const navMain = computed((): LinkItem[] => [
   { to: '/leaderboard', label: 'Лидерборд' },
   { to: '/podium', label: 'Подиум' },
+  { to: '/about', label: 'О хакатоне' },
   { to: '/cases', label: 'Кейсы' },
   { to: '/timer', label: 'Таймер' },
 ])
@@ -111,7 +112,6 @@ const adminMenu = computed((): LinkItem[] => {
     { to: '/admin/cases', label: 'Кейсы' },
     { to: '/admin/criteria', label: 'Критерии' },
     { to: '/admin/users', label: 'Пользователи' },
-    { to: '/admin/telegram-console', label: 'TG консоль' },
   ]
 })
 
@@ -210,15 +210,6 @@ async function onLogout() {
             active-class="!bg-violet-500/20 !ring-violet-400/50"
           >
             Симпатии
-          </RouterLink>
-
-          <RouterLink
-            v-if="auth.role === 'admin'"
-            to="/admin/telegram-console"
-            class="shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 font-mono text-[11px] text-sky-200/95 transition hover:bg-sky-500/20 sm:px-3 sm:text-xs"
-            title="Обзор для админа + ссылка на бота"
-          >
-            TG · админ
           </RouterLink>
 
           <button

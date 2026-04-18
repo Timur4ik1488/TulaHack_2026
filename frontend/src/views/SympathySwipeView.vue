@@ -4,12 +4,19 @@ import { api } from '../api/http'
 import { useAuthStore } from '../stores/auth'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 
+interface MemberRow {
+  username: string
+  role: string
+}
+
 interface Team {
   id: number
   name: string
   description: string | null
   case_number: number | null
+  case_ordinal?: number | null
   photo_url: string | null
+  members?: MemberRow[]
 }
 
 interface MyVote {
@@ -28,6 +35,9 @@ const dragX = ref(0)
 const dragging = ref(false)
 let startX = 0
 let activePointerId: number | null = null
+/** Защита от двойного POST (повтор запроса с тем же team+value за короткое время). */
+let lastVotePostKey = ''
+let lastVotePostAt = 0
 
 const current = computed(() => teams.value[index.value] ?? null)
 const peekNextTeam = computed(() => teams.value[index.value + 1] ?? null)
@@ -180,6 +190,13 @@ async function onPointerUp(e: PointerEvent) {
 async function postVote(value: -1 | 1) {
   const team = current.value
   if (!team) return
+  const postKey = `${team.id}:${value}`
+  const now = Date.now()
+  if (postKey === lastVotePostKey && now - lastVotePostAt < 450) {
+    return
+  }
+  lastVotePostKey = postKey
+  lastVotePostAt = now
   busy.value = true
   msg.value = ''
   try {
@@ -194,6 +211,7 @@ async function postVote(value: -1 | 1) {
       index.value += 1
     }
   } catch (e: unknown) {
+    lastVotePostKey = ''
     const ax = e as { response?: { status?: number; data?: { detail?: string } } }
     const d = ax.response?.data?.detail
     msg.value = `Ошибка ${ax.response?.status ?? ''} ${typeof d === 'string' ? d : ''}`.trim()
@@ -311,6 +329,15 @@ async function postVote(value: -1 | 1) {
             </div>
             <p v-if="current.description" class="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-400">
               {{ current.description }}
+            </p>
+            <p
+              v-if="(current.case_ordinal ?? current.case_number) != null"
+              class="mt-2 font-mono text-[10px] text-amber-300/85"
+            >
+              кейс №{{ current.case_ordinal ?? current.case_number }}
+            </p>
+            <p v-if="current.members?.length" class="mt-1 line-clamp-2 font-mono text-[10px] text-slate-500">
+              {{ current.members.map((m) => '@' + m.username).join(' · ') }}
             </p>
           </div>
           <p class="font-mono text-[10px] text-slate-600">{{ index + 1 }} / {{ teams.length }}</p>

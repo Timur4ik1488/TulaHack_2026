@@ -10,12 +10,18 @@ interface CaseTeamBrief {
   team_name: string
 }
 
+interface CaseExpertRow {
+  user_id: string
+  username: string
+}
+
 interface CaseDetail {
   id: number
   ordinal: number
   title: string
   description: string | null
   company_name: string
+  experts: CaseExpertRow[]
   expert_user_ids: string[]
   teams: CaseTeamBrief[]
 }
@@ -44,9 +50,16 @@ const expertPick = ref<string[]>([])
 
 const caseId = computed(() => Number(route.params.id))
 
+function uidStr(id: string | undefined) {
+  return id ? String(id).toLowerCase().replace(/-/g, '') : ''
+}
+
 const canManageTeams = computed(() => {
   if (auth.role === 'admin') return true
-  if (auth.role === 'expert' && auth.user && detail.value?.expert_user_ids?.includes(auth.user.id)) return true
+  if (auth.role === 'expert' && auth.user && detail.value) {
+    const me = uidStr(auth.user.id)
+    return (detail.value.expert_user_ids || []).some((x) => uidStr(String(x)) === me)
+  }
   return false
 })
 
@@ -58,7 +71,7 @@ async function load() {
   try {
     const { data } = await api.get<CaseDetail>(`/api/cases/${caseId.value}`)
     detail.value = data
-    expertPick.value = [...(data.expert_user_ids || [])]
+    expertPick.value = (data.experts || []).map((e) => String(e.user_id))
   } catch {
     err.value = 'Кейс не найден'
   }
@@ -119,7 +132,9 @@ async function saveExperts() {
   busy.value = true
   msg.value = ''
   try {
-    await api.post(`/api/cases/${detail.value.id}/experts`, { user_ids: expertPick.value })
+    await api.post(`/api/cases/${detail.value.id}/experts`, {
+      user_ids: expertPick.value.map((id) => String(id)),
+    })
     await load()
     msg.value = 'Эксперты кейса обновлены'
   } catch (e) {
@@ -150,6 +165,20 @@ watch(caseId, async () => {
     </p>
     <h1 class="text-3xl font-bold text-slate-100">{{ detail.title }}</h1>
     <p v-if="detail.description" class="mt-4 whitespace-pre-wrap text-slate-400">{{ detail.description }}</p>
+
+    <section class="mt-8 rounded-2xl border border-white/10 bg-slate-900/40 p-5">
+      <h2 class="mb-2 font-mono text-sm uppercase tracking-wider text-slate-500">Эксперты кейса</h2>
+      <ul v-if="detail.experts?.length" class="flex flex-wrap gap-2">
+        <li
+          v-for="e in detail.experts"
+          :key="e.user_id"
+          class="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 font-mono text-xs text-cyan-100"
+        >
+          @{{ e.username || e.user_id }}
+        </li>
+      </ul>
+      <p v-else class="font-mono text-sm text-slate-600">Эксперты пока не назначены.</p>
+    </section>
 
     <section class="mt-10">
       <h2 class="mb-3 font-mono text-sm uppercase tracking-wider text-cyan-500/80">Команды на кейсе</h2>
@@ -205,7 +234,7 @@ watch(caseId, async () => {
       <p class="mt-1 text-xs text-slate-500">Только они (и админ) могут закреплять команды за кейсом.</p>
       <div class="mt-4 max-h-48 space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-black/30 p-3">
         <label v-for="u in expertOptions" :key="u.id" class="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-          <input v-model="expertPick" type="checkbox" class="checkbox checkbox-sm border-amber-500/40" :value="u.id" />
+          <input v-model="expertPick" type="checkbox" class="checkbox checkbox-sm border-amber-500/40" :value="String(u.id)" />
           <span>@{{ u.username }}</span>
         </label>
         <p v-if="!expertOptions.length" class="text-xs text-slate-600">Нет пользователей с ролью expert в системе.</p>

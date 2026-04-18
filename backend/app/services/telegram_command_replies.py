@@ -271,7 +271,7 @@ async def compose_telegram_bot_reply(db: AsyncSession, chat_id: int, text: str) 
             return "Только для администратора."
         return (
             "Массовая рассылка и шаблоны — в веб-интерфейсе:\n"
-            f"{site}/admin/telegram-console\n"
+            f"{site}/admin\n"
             "Бот не меняет данные на сервере, только показывает информацию и напоминает."
         )
 
@@ -291,7 +291,7 @@ async def compose_telegram_bot_reply(db: AsyncSession, chat_id: int, text: str) 
             return "Только для администратора."
         return (
             "Экстренные объявления участникам лучше дублировать с сайта и через рассылку:\n"
-            f"{site}/admin/telegram-console"
+            f"{site}/admin"
         )
 
     if cmd in ("/notify_on", "/notify_off"):

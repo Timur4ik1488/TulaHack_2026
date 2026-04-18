@@ -27,7 +27,8 @@ export function useSocket() {
     }
     sharedSocket = io(socketBaseUrl(), {
       path: '/socket.io',
-      withCredentials: true,
+      // Куки для handshake не нужны; true + несовпадение Origin даёт 403 у engine.io.
+      withCredentials: false,
       transports: ['websocket', 'polling'],
     })
     return sharedSocket

@@ -8,6 +8,9 @@ interface Row {
   rank: number
   team_id: number
   team_name: string
+  case_ordinal?: number | null
+  case_id?: number | null
+  case_title?: string | null
   jury_percent: number
   sympathy_bonus_percent: number
   sympathy_votes_sum?: number
@@ -42,6 +45,11 @@ function sympathyVotesHint(n?: number) {
   const v = n ?? 0
   if (v === 0) return ''
   return ` (Σ ${v})`
+}
+
+function formatSympathyBonus(p: number) {
+  const sign = p > 0 ? '+' : p < 0 ? '−' : ''
+  return `${sign}${Math.abs(p).toFixed(2)}%`
 }
 
 async function load() {
@@ -92,16 +100,30 @@ onUnmounted(() => {
           >
             #{{ r.rank }}
           </span>
-          <RouterLink
-            :to="`/teams/${r.team_id}`"
-            class="min-w-0 flex-1 truncate font-semibold text-slate-100 underline decoration-cyan-500/0 decoration-2 underline-offset-4 transition group-hover:decoration-cyan-400/80"
-          >
-            {{ r.team_name }}
-          </RouterLink>
+          <div class="min-w-0 flex-1 truncate">
+            <RouterLink
+              :to="`/teams/${r.team_id}`"
+              class="block truncate font-semibold text-slate-100 underline decoration-cyan-500/0 decoration-2 underline-offset-4 transition group-hover:decoration-cyan-400/80"
+            >
+              {{ r.team_name }}
+            </RouterLink>
+            <RouterLink
+              v-if="r.case_title && r.case_id != null && r.case_id !== undefined"
+              :to="`/cases/${r.case_id}`"
+              class="mt-0.5 block truncate font-mono text-[10px] font-normal text-amber-400/90 underline decoration-amber-500/0 underline-offset-2 hover:text-amber-300 hover:decoration-amber-400/60"
+            >
+              {{ r.case_title }}
+            </RouterLink>
+            <span
+              v-else-if="r.case_ordinal != null && r.case_ordinal !== undefined"
+              class="mt-0.5 block font-mono text-[10px] font-normal text-amber-400/90"
+            >
+              кейс №{{ r.case_ordinal }}
+            </span>
+          </div>
           <div class="hidden font-mono text-[10px] text-slate-500 sm:block sm:max-w-[14rem] sm:truncate">
-            жюри {{ r.jury_percent?.toFixed?.(2) ?? '—' }}% · симп. +{{ (r.sympathy_bonus_percent ?? 0).toFixed(2) }}%{{
-              sympathyVotesHint(r.sympathy_votes_sum)
-            }}
+            жюри {{ r.jury_percent?.toFixed?.(2) ?? '—' }}% · симп. {{ formatSympathyBonus(r.sympathy_bonus_percent ?? 0)
+            }}{{ sympathyVotesHint(r.sympathy_votes_sum) }}
           </div>
         </div>
         <div class="flex w-full flex-col items-end gap-1 sm:w-auto">
@@ -111,9 +133,8 @@ onUnmounted(() => {
             {{ r.total_percent.toFixed(2) }}%
           </span>
           <span class="font-mono text-[10px] text-slate-500 sm:hidden">
-            жюри {{ r.jury_percent?.toFixed?.(2) ?? '—' }}% · симп. +{{ (r.sympathy_bonus_percent ?? 0).toFixed(2) }}%{{
-              sympathyVotesHint(r.sympathy_votes_sum)
-            }}
+            жюри {{ r.jury_percent?.toFixed?.(2) ?? '—' }}% · симп. {{ formatSympathyBonus(r.sympathy_bonus_percent ?? 0)
+            }}{{ sympathyVotesHint(r.sympathy_votes_sum) }}
           </span>
         </div>
       </li>

@@ -4,12 +4,19 @@ import { RouterLink } from 'vue-router'
 import { api } from '../api/http'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
 
+interface MemberRow {
+  username: string
+  role: string
+}
+
 interface Team {
   id: number
   name: string
   description: string | null
   case_number: number | null
+  case_ordinal?: number | null
   photo_url: string | null
+  members?: MemberRow[]
 }
 
 interface Sheet {
@@ -23,6 +30,39 @@ interface Sheet {
 
 const teams = ref<Team[]>([])
 const mine = ref<Sheet[]>([])
+const zipBusy = ref(false)
+const zipErr = ref('')
+
+function parseFilenameFromDisposition(cd: string | null): string | null {
+  if (!cd) return null
+  const m = /filename\*?=(?:UTF-8''|")?([^";]+)"?/i.exec(cd)
+  return m ? decodeURIComponent(m[1].replace(/"/g, '')) : null
+}
+
+async function downloadJuryPack() {
+  zipErr.value = ''
+  zipBusy.value = true
+  try {
+    const base = import.meta.env.VITE_API_URL ?? ''
+    const r = await fetch(`${base}/api/scores/jury-pack.zip`, { credentials: 'include' })
+    if (!r.ok) {
+      zipErr.value = 'Не удалось скачать архив (нужна роль жюри / вход).'
+      return
+    }
+    const blob = await r.blob()
+    const name = parseFilenameFromDisposition(r.headers.get('content-disposition')) ?? 'jury_pack.zip'
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    zipErr.value = 'Ошибка сети при скачивании ZIP.'
+  } finally {
+    zipBusy.value = false
+  }
+}
 
 onMounted(async () => {
   const [t, m] = await Promise.all([api.get<Team[]>('/api/teams/'), api.get<Sheet[]>('/api/scores/mine')])
@@ -52,6 +92,17 @@ function progressForTeam(teamId: number) {
       <p class="mx-auto mt-3 max-w-lg text-sm text-slate-500">
         Здесь жюри выставляет официальные баллы по критериям. Зрительские симпатии (+1/−1) — в разделе «Симпатии».
       </p>
+      <div class="mx-auto mt-6 flex max-w-lg flex-col items-center gap-2">
+        <button
+          type="button"
+          class="btn btn-outline btn-sm border-emerald-500/40 font-mono text-xs text-emerald-200 hover:bg-emerald-500/10"
+          :disabled="zipBusy"
+          @click="downloadJuryPack"
+        >
+          {{ zipBusy ? '…' : 'Скачать пакет жюри (ZIP, Excel по кейсам)' }}
+        </button>
+        <p v-if="zipErr" class="text-center font-mono text-xs text-rose-400">{{ zipErr }}</p>
+      </div>
     </div>
 
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -71,12 +122,18 @@ function progressForTeam(teamId: number) {
             class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-90"
           />
           <div class="absolute bottom-0 left-0 right-0 p-5">
-            <p v-if="t.case_number != null" class="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-300/90">
-              case #{{ t.case_number }}
+            <p
+              v-if="(t.case_ordinal ?? t.case_number) != null"
+              class="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-300/90"
+            >
+              кейс №{{ t.case_ordinal ?? t.case_number }}
             </p>
             <h2 class="line-clamp-2 text-xl font-bold leading-tight text-white">{{ t.name }}</h2>
             <p v-if="t.description" class="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-400">
               {{ t.description }}
+            </p>
+            <p v-if="t.members?.length" class="mt-2 line-clamp-2 font-mono text-[10px] leading-relaxed text-slate-500">
+              {{ t.members.map((m) => '@' + m.username).join(' · ') }}
             </p>
           </div>
           <span

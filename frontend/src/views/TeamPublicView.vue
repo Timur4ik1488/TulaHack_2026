@@ -1,36 +1,50 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, RouterLink } from 'vue-router'
 import { api } from '../api/http'
-import { useAuthStore } from '../stores/auth'
 import { onTeamPhotoError, teamPhotoSrc } from '../composables/useTeamPhotoFallback'
+
+interface TeamMemberRow {
+  username: string
+  role: string
+}
+
+interface TeamCaseCard {
+  case_id: number
+  ordinal: number
+  title: string
+  company_name: string
+  description: string | null
+}
 
 interface Team {
   id: number
   name: string
   description: string | null
   case_number: number | null
+  case_ordinal?: number | null
+  case_card?: TeamCaseCard | null
   photo_url: string | null
   repo_url: string | null
   screenshots_json: string | null
   solution_submission_url: string | null
-}
-
-interface TeamMemberRow {
-  user_id: string
-  username: string
-  role: 'captain' | 'member'
+  members?: TeamMemberRow[]
 }
 
 const route = useRoute()
-const auth = useAuthStore()
 const team = ref<Team | null>(null)
-const members = ref<TeamMemberRow[] | null>(null)
 const err = ref('')
 
 const id = computed(() => Number(route.params.id))
 
 const coverSrc = computed(() => teamPhotoSrc(team.value?.photo_url))
+
+const caseLabel = computed(() => {
+  const t = team.value
+  if (!t) return null
+  const n = t.case_ordinal ?? t.case_number
+  return n != null ? n : null
+})
 
 function parseShots(raw: string | null): string[] {
   if (!raw) return []
@@ -57,8 +71,9 @@ const repoHref = computed(() => {
 })
 
 const sortedMembers = computed(() => {
-  if (!members.value?.length) return []
-  return [...members.value].sort((a, b) => {
+  const raw = team.value?.members
+  if (!raw?.length) return []
+  return [...raw].sort((a, b) => {
     const ra = a.role === 'captain' ? 0 : 1
     const rb = b.role === 'captain' ? 0 : 1
     return ra - rb
@@ -68,7 +83,6 @@ const sortedMembers = computed(() => {
 async function load() {
   err.value = ''
   team.value = null
-  members.value = null
   try {
     const { data } = await api.get<Team>(`/api/teams/${id.value}`)
     team.value = data
@@ -77,28 +91,9 @@ async function load() {
   }
 }
 
-async function loadMembers() {
-  if (!auth.user || !Number.isFinite(id.value)) {
-    members.value = null
-    return
-  }
-  try {
-    const { data } = await api.get<TeamMemberRow[]>(`/api/teams/${id.value}/members`)
-    members.value = data
-  } catch {
-    members.value = null
-  }
-}
+onMounted(load)
 
-onMounted(async () => {
-  await load()
-  await loadMembers()
-})
-
-watch(id, async () => {
-  await load()
-  await loadMembers()
-})
+watch(id, load)
 </script>
 
 <template>
@@ -110,13 +105,36 @@ watch(id, async () => {
       <img :src="coverSrc" :alt="team.name" class="h-full w-full object-cover" @error="onTeamPhotoError" />
       <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
       <div class="absolute bottom-4 left-6 right-6">
-        <p v-if="team.case_number != null" class="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-300/90">
-          case #{{ team.case_number }}
+        <div v-if="team.case_card" class="mb-2 space-y-1">
+          <RouterLink
+            :to="`/cases/${team.case_card.case_id}`"
+            class="inline-block font-mono text-[10px] uppercase tracking-widest text-amber-300/90 underline-offset-2 hover:text-amber-200 hover:underline"
+          >
+            кейс №{{ team.case_card.ordinal }} · {{ team.case_card.company_name }}
+          </RouterLink>
+          <p class="line-clamp-2 text-sm font-medium text-white/95 drop-shadow">{{ team.case_card.title }}</p>
+        </div>
+        <p v-else-if="caseLabel != null" class="mb-1 font-mono text-[10px] uppercase tracking-widest text-amber-300/90">
+          кейс №{{ caseLabel }}
         </p>
         <h1 class="font-mono text-2xl font-bold text-white drop-shadow md:text-3xl">{{ team.name }}</h1>
       </div>
     </div>
     <div class="space-y-8 p-8">
+      <div
+        v-if="team.case_card?.description"
+        class="rounded-2xl border border-amber-500/25 bg-amber-950/20 p-4 text-sm leading-relaxed text-slate-300"
+      >
+        <p class="font-mono text-[10px] uppercase tracking-wider text-amber-400/90">о кейсе</p>
+        <p class="mt-2 whitespace-pre-wrap">{{ team.case_card.description }}</p>
+        <RouterLink
+          :to="`/cases/${team.case_card.case_id}`"
+          class="mt-3 inline-flex font-mono text-xs text-cyan-300 underline-offset-2 hover:text-cyan-200 hover:underline"
+        >
+          Перейти к странице кейса →
+        </RouterLink>
+      </div>
+
       <p v-if="team.description" class="whitespace-pre-wrap leading-relaxed text-slate-400">{{ team.description }}</p>
 
       <div v-if="solutionHref" class="rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-4">
@@ -163,8 +181,8 @@ watch(id, async () => {
         <h2 class="mb-4 text-lg font-semibold text-slate-100">Участники</h2>
         <ul class="grid gap-3 sm:grid-cols-2">
           <li
-            v-for="m in sortedMembers"
-            :key="m.user_id"
+            v-for="(m, idx) in sortedMembers"
+            :key="`${m.username}-${idx}`"
             class="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 backdrop-blur-sm transition hover:border-cyan-500/20"
           >
             <span class="truncate font-medium text-slate-100">@{{ m.username }}</span>
