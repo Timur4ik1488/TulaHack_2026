@@ -9,6 +9,7 @@ export interface AuthUser {
   role: 'admin' | 'expert' | 'participant'
   is_active: boolean
   is_blocked: boolean
+  avatar_url?: string | null
 }
 
 export const useAuthStore = defineStore('auth', () => {

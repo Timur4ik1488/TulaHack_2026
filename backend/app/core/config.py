@@ -29,11 +29,18 @@ class Settings(BaseSettings):
     ACCESS_COOKIE_NAME: str = "access_token"
     REFRESH_COOKIE_NAME: str = "refresh_token"
 
-    # Запятые в .env: http://localhost:5173,http://127.0.0.1:5173
     CORS_ORIGINS: str = (
+        "http://localhost,http://127.0.0.1,"
+        "http://localhost:80,http://127.0.0.1:80,"
         "http://localhost:5173,http://127.0.0.1:5173,"
-        "http://localhost:4173,http://127.0.0.1:4173"
+        "http://localhost:4173,http://127.0.0.1:4173,"
+        "http://localhost:8080,http://127.0.0.1:8080,"
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:8000,http://127.0.0.1:8000"
     )
+
+    # Дефолтная аватарка команды (файл в app/static/)
+    DEFAULT_TEAM_PHOTO_URL: str = "/static/default-team-avatar.png"
 
     BOOTSTRAP_ADMIN: bool = True
     BOOTSTRAP_ADMIN_EMAIL: str = "admin@example.com"
@@ -46,17 +53,10 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = ""
     POSTGRES_DB: str = ""
 
-    # Только для локального запуска без Docker (в проде не используйте).
-    USE_SQLITE: bool = False
-    SQLITE_DB_PATH: str = "hackrank.db"
-
-    # Участников в одной команде (капитан + приглашённые).
     MAX_TEAM_MEMBERS: int = 8
 
     @property
     def get_db_url(self) -> str:
-        if self.USE_SQLITE:
-            return f"sqlite+aiosqlite:///./{self.SQLITE_DB_PATH}"
         if self.DATABASE_URL:
             return self.DATABASE_URL
         return (

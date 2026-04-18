@@ -9,6 +9,7 @@ const links = computed(() => {
   const base: { to: string; label: string }[] = [
     { to: '/leaderboard', label: 'Лидерборд' },
     { to: '/podium', label: 'Топ-3' },
+    { to: '/timer', label: 'Таймер' },
   ]
   if (!auth.user) {
     base.push({ to: '/login', label: 'git login' }, { to: '/register', label: 'register' })
@@ -21,10 +22,10 @@ const links = computed(() => {
       { to: '/jury/teams', label: 'Команды' },
     )
   }
-  if (r === 'participant' || r === 'admin') {
+  if (r === 'participant' || r === 'admin' || r === 'expert') {
     base.push(
-      { to: '/team/profile', label: 'Профиль' },
-      { to: '/team/breakdown', label: 'Diff оценок' },
+      { to: '/team/profile', label: r === 'participant' ? 'Моя команда' : 'Профиль' },
+      { to: '/team/breakdown', label: 'Оценки' },
       { to: '/team/chat', label: 'Чат' },
     )
   }
@@ -33,7 +34,6 @@ const links = computed(() => {
       { to: '/admin/teams', label: 'Админ: teams' },
       { to: '/admin/criteria', label: 'Критерии' },
       { to: '/admin/users', label: 'Users' },
-      { to: '/admin/timer', label: 'Таймер' },
     )
   }
   return base
@@ -49,7 +49,10 @@ async function onLogout() {
     <header
       class="sticky top-0 z-50 border-b border-cyan-500/10 bg-slate-950/80 backdrop-blur-md"
     >
-      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div
+        class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4 md:px-5"
+        style="padding-left: max(0.75rem, env(safe-area-inset-left)); padding-right: max(0.75rem, env(safe-area-inset-right))"
+      >
         <RouterLink
           to="/"
           class="group flex items-center gap-2 font-mono text-lg font-bold tracking-tight text-slate-100"
@@ -62,7 +65,9 @@ async function onLogout() {
             <span class="text-cyan-400">Hack</span><span class="text-emerald-400">Swipe</span>
           </span>
         </RouterLink>
-        <nav class="flex flex-wrap items-center gap-1">
+        <nav
+          class="flex max-w-[min(100vw-8rem,52rem)] flex-1 flex-wrap items-center justify-end gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-none sm:justify-start [&::-webkit-scrollbar]:hidden"
+        >
           <RouterLink
             v-for="l in links"
             :key="l.to"
@@ -84,7 +89,10 @@ async function onLogout() {
       </div>
     </header>
 
-    <main class="mx-auto max-w-6xl px-4 py-8 pb-16">
+    <main
+      class="mx-auto max-w-7xl px-3 py-8 pb-20 sm:px-5 sm:py-10 md:px-6"
+      style="padding-bottom: max(5rem, env(safe-area-inset-bottom)); padding-left: max(0.75rem, env(safe-area-inset-left)); padding-right: max(0.75rem, env(safe-area-inset-right))"
+    >
       <RouterView />
     </main>
 

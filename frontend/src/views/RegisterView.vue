@@ -63,7 +63,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-lg flex-col items-center pt-8">
+  <div class="mx-auto flex max-w-xl flex-col items-center pt-10">
     <p class="mb-2 font-mono text-xs text-cyan-500/80">// remote: register + team</p>
     <h1 class="mb-2 text-center text-3xl font-bold tracking-tight text-slate-100">
       Регистрация · <span class="text-cyan-400">{{ title }}</span>

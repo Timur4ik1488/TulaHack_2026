@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+from app.core.config import settings
 
 from app.models.team_member import TeamMemberRole
 
@@ -54,11 +56,23 @@ class TeamPublicRead(BaseModel):
     repo_url: Optional[str] = None
     screenshots_json: Optional[str] = None
 
+    @field_serializer("photo_url")
+    def _serialize_photo_url(self, v: Optional[str]) -> str:
+        if v and str(v).strip():
+            return str(v).strip()
+        return settings.DEFAULT_TEAM_PHOTO_URL
+
 
 class TeamRead(TeamCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
+    @field_serializer("photo_url")
+    def _serialize_photo_url(self, v: Optional[str]) -> str:
+        if v and str(v).strip():
+            return str(v).strip()
+        return settings.DEFAULT_TEAM_PHOTO_URL
 
 
 class TeamMemberOut(BaseModel):

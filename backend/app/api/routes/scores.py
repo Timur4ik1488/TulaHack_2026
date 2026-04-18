@@ -63,7 +63,6 @@ async def upsert_score(
             detail=f"Score must be between 0 and {cr.max_score}",
         )
 
-    # Универсальный upsert (SQLite не всегда корректно обрабатывает insert.on_conflict).
     q = await db.execute(
         select(Score).where(
             Score.expert_id == current_user.id,
@@ -74,7 +73,7 @@ async def upsert_score(
     row = q.scalar_one_or_none()
     if row:
         row.value = payload.value
-        row.is_final = False
+        row.is_final = True
     else:
         db.add(
             Score(
@@ -82,11 +81,17 @@ async def upsert_score(
                 team_id=payload.team_id,
                 criterion_id=payload.criterion_id,
                 value=payload.value,
-                is_final=False,
+                is_final=True,
             )
         )
     await db.commit()
-    return {"ok": True}
+
+    pct = await team_total_percent(db, payload.team_id)
+    await sio.emit(
+        "rating_updated",
+        {"team_id": payload.team_id, "total_percent": pct, "score": pct},
+    )
+    return {"ok": True, "total_percent": pct}
 
 
 @router.post("/{team_id}/submit")

@@ -57,19 +57,19 @@ const router = createRouter({
       path: '/team/profile',
       name: 'team-profile',
       component: () => import('../views/TeamProfileView.vue'),
-      meta: { roles: ['participant', 'admin'] },
+      meta: { roles: ['participant', 'admin', 'expert'] },
     },
     {
       path: '/team/breakdown',
       name: 'team-breakdown',
       component: () => import('../views/TeamBreakdownView.vue'),
-      meta: { roles: ['participant', 'admin'] },
+      meta: { roles: ['participant', 'admin', 'expert'] },
     },
     {
       path: '/team/chat',
       name: 'team-chat',
       component: () => import('../views/TeamChatView.vue'),
-      meta: { roles: ['participant', 'admin'] },
+      meta: { roles: ['participant', 'admin', 'expert'] },
     },
     {
       path: '/admin/teams',
@@ -90,10 +90,15 @@ const router = createRouter({
       meta: { roles: ['admin'] },
     },
     {
+      path: '/timer',
+      name: 'hackathon-timer',
+      component: () => import('../views/AdminTimerView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/admin/timer',
       name: 'admin-timer',
-      component: () => import('../views/AdminTimerView.vue'),
-      meta: { roles: ['admin'] },
+      redirect: '/timer',
     },
   ],
 })

@@ -34,6 +34,7 @@ class User(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     scores: Mapped[list["Score"]] = relationship(back_populates="expert")
     messages: Mapped[list["Message"]] = relationship(back_populates="author")

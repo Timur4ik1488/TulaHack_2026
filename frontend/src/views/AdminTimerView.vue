@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { api } from '../api/http'
+import { useAuthStore } from '../stores/auth'
+import { apiErrorMessage } from '../utils/apiErrorMessage'
+
+const auth = useAuthStore()
+
+interface TimerResp {
+  deadline_at: string | null
+  server_now: string
+}
 
 const minutes = ref(45)
 const secondsLeft = ref(0)
-const running = ref(false)
-let handle: ReturnType<typeof setInterval> | null = null
+const msg = ref('')
+const busy = ref(false)
+
+let pollHandle: ReturnType<typeof setInterval> | null = null
 
 const display = computed(() => {
   const m = Math.floor(secondsLeft.value / 60)
@@ -12,46 +24,125 @@ const display = computed(() => {
   return `${m}:${s.toString().padStart(2, '0')}`
 })
 
-function start() {
-  stop()
-  secondsLeft.value = Math.max(0, Math.round(minutes.value * 60))
-  running.value = true
-  handle = setInterval(() => {
-    if (secondsLeft.value <= 0) {
-      stop()
+const isRunning = computed(() => secondsLeft.value > 0)
+
+async function poll() {
+  try {
+    const { data } = await api.get<TimerResp>('/api/timer/')
+    if (!data.deadline_at) {
+      secondsLeft.value = 0
       return
     }
-    secondsLeft.value -= 1
-  }, 1000)
-}
-
-function stop() {
-  if (handle) {
-    clearInterval(handle)
-    handle = null
+    const end = new Date(data.deadline_at).getTime()
+    const srv = new Date(data.server_now).getTime()
+    secondsLeft.value = Math.max(0, Math.floor((end - srv) / 1000))
+  } catch {
+    /* гость без сети — тихо */
   }
-  running.value = false
 }
 
-onUnmounted(stop)
+async function start() {
+  if (auth.role !== 'admin') {
+    msg.value = 'Только админ может запускать серверный таймер'
+    return
+  }
+  busy.value = true
+  msg.value = ''
+  try {
+    await api.post('/api/timer/start', { minutes: minutes.value })
+    await poll()
+    msg.value = 'Таймер запущен на сервере'
+  } catch (e) {
+    msg.value = apiErrorMessage(e, 'Не удалось запустить')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function stop() {
+  if (auth.role !== 'admin') return
+  busy.value = true
+  msg.value = ''
+  try {
+    await api.post('/api/timer/stop')
+    await poll()
+    msg.value = 'Таймер остановлен'
+  } catch (e) {
+    msg.value = apiErrorMessage(e, 'Не удалось остановить')
+  } finally {
+    busy.value = false
+  }
+}
+
+onMounted(() => {
+  void poll()
+  pollHandle = setInterval(poll, 1000)
+})
+
+onUnmounted(() => {
+  if (pollHandle) clearInterval(pollHandle)
+})
 </script>
 
 <template>
-  <div>
-    <h1 class="mb-4 text-2xl font-bold">Таймер хакатона</h1>
-    <p class="mb-4 text-sm opacity-70">Локальный обратный отсчёт (без бэкенда).</p>
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body items-center text-center">
-        <label class="form-control w-full max-w-xs">
-          <span class="label-text">Минуты</span>
-          <input v-model.number="minutes" type="number" min="1" class="input input-bordered" :disabled="running" />
-        </label>
-        <p class="py-6 font-mono text-6xl font-bold tabular-nums">{{ display }}</p>
-        <div class="card-actions">
-          <button type="button" class="btn btn-primary" :disabled="running" @click="start">Старт</button>
-          <button type="button" class="btn btn-ghost" @click="stop">Стоп</button>
-        </div>
+  <div class="mx-auto max-w-lg space-y-8 px-1 sm:px-0">
+    <div class="text-center">
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">
+        {{ auth.role === 'admin' ? '// admin · server timer' : '// server timer (read-only)' }}
+      </p>
+      <h1
+        class="bg-gradient-to-r from-cyan-200 to-emerald-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
+      >
+        Таймер хакатона
+      </h1>
+      <p class="mt-2 text-sm text-slate-500">
+        Синхронизация с бэкендом: все клиенты видят одно и то же время (опрос раз в секунду).
+      </p>
+    </div>
+
+    <div
+      class="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 p-6 text-center shadow-2xl backdrop-blur-md hs-glow-merge sm:p-8"
+    >
+      <label v-if="auth.role === 'admin'" class="mx-auto block max-w-xs text-left">
+        <span class="mb-2 block font-mono text-[10px] uppercase tracking-wider text-slate-500">минуты (старт)</span>
+        <input
+          v-model.number="minutes"
+          type="number"
+          min="1"
+          step="1"
+          class="input w-full border-white/10 bg-black/40 font-mono text-slate-100 focus:border-cyan-500/40"
+          :disabled="busy || isRunning"
+        />
+      </label>
+      <p
+        class="my-6 bg-gradient-to-br from-cyan-400 via-white to-emerald-400 bg-clip-text font-mono text-5xl font-bold tabular-nums text-transparent sm:text-6xl md:text-7xl"
+      >
+        {{ display }}
+      </p>
+      <p v-if="msg" class="mb-4 font-mono text-xs text-slate-400">{{ msg }}</p>
+      <div class="flex flex-col gap-2 sm:flex-row sm:justify-center sm:gap-3">
+        <button
+          v-if="auth.role === 'admin'"
+          type="button"
+          class="btn border-0 bg-gradient-to-r from-emerald-600 to-cyan-600 font-mono text-sm text-white hover:opacity-95 disabled:opacity-40"
+          :disabled="busy"
+          @click="start"
+        >
+          старт на сервере
+        </button>
+        <button
+          v-if="auth.role === 'admin'"
+          type="button"
+          class="btn border border-white/15 bg-white/5 font-mono text-sm text-slate-300 hover:bg-white/10 disabled:opacity-40"
+          :disabled="busy"
+          @click="stop"
+        >
+          стоп
+        </button>
       </div>
+      <p v-if="auth.role !== 'admin'" class="mt-4 font-mono text-[11px] text-slate-600">
+        Управление таймером только у администратора.
+      </p>
     </div>
   </div>
 </template>

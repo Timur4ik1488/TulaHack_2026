@@ -259,7 +259,10 @@ async def upload_team_photo(
         )
     raw = await file.read()
     if len(raw) > MAX_PHOTO_BYTES:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Файл слишком большой")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Файл слишком большой: максимум {MAX_PHOTO_BYTES // (1024 * 1024)} МБ",
+        )
 
     static_dir = _static_dir()
     upload_root = static_dir / "uploads" / "teams" / str(team_id)

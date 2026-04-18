@@ -10,10 +10,14 @@ class MessageCreate(BaseModel):
 
 
 class MessageRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """Ответ API и payload Socket.IO `new_message`."""
+
+    model_config = ConfigDict()
 
     id: int
     team_id: int
     author_id: uuid.UUID
+    author_username: str
+    author_role_label: str
     text: str
     created_at: dt.datetime

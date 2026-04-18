@@ -2,8 +2,13 @@ import socketio
 
 from app.core.config import settings
 
-_origins = settings.cors_origin_list if settings.cors_origin_list else "*"
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=_origins)
+# Те же origin, что у FastAPI CORS — иначе Socket.IO отвечает 403 на handshake.
+_origins = settings.cors_origin_list if settings.cors_origin_list else ["*"]
+sio = socketio.AsyncServer(
+    async_mode="asgi",
+    cors_allowed_origins=_origins,
+    allow_upgrades=True,
+)
 
 
 @sio.event

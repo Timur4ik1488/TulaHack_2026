@@ -34,3 +34,13 @@
     0 0 60px -12px rgba(251, 113, 133, 0.35),
     0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
+
+/* Задел под мобильные: крупнее зона тапа, без zoom на input в iOS */
+@layer base {
+  @media (max-width: 640px) {
+    .btn,
+    button[type='button'] {
+      min-height: 2.75rem;
+    }
+  }
+}

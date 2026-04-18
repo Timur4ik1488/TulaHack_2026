@@ -5,7 +5,7 @@ networks:
 services:
   db:
     image: postgres:alpine
-    container_name: tule_db
+    container_name: tula_db
     shm_size: 256mb
     restart: unless-stopped
     volumes:
@@ -17,19 +17,16 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      # - POSTGRES_HOST=${POSTGRES_HOST}
-      # - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_DB=${POSTGRES_DB}
-      # - DATABASE_URL=postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tula_user -d tula_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 8s
       timeout: 30s
       retries: 5
 
     ports:
-      - 5434:5432 #порты 5432 и 5433 у меня уже заняты
+      - 5434:5432
 
     networks:
       - dev
@@ -51,20 +48,116 @@ services:
     restart: unless-stopped
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
-      - ./backend/app/static:/app/static
+      # Код в контейнере: /app/app/... — статика монтируется туда же, иначе загрузки не попадают на хост.
+      - ./backend/app/static:/app/app/static
+      - ./backend/app/media:/app/media
     env_file:
       - .env
-    # Внутри сети compose Postgres всегда на порту 5432; 5434 — только проброс на хост.
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3).read(8)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     ports:
       - 8000:8000
     networks:
       - dev
 
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: tula_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    networks:
+      - dev
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: tula_loki
+    restart: unless-stopped
+    volumes:
+      - ./infra/observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - dev
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: tula_promtail
+    restart: unless-stopped
+    volumes:
+      - ./infra/observability/promtail.yml:/etc/promtail/config.yml:ro
+      - ./frontend/nginx/logs:/var/log/nginx:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - dev
+    depends_on:
+      - loki
+      - nginx
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: tula_grafana
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme_grafana}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost/ops/grafana/}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    networks:
+      - dev
+    depends_on:
+      - prometheus
+      - loki
+
+  nginx:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nginx_hack_2026
+    restart: unless-stopped
+    volumes:
+      - ./frontend/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./backend/app/media:/app/media:ro
+      - ./frontend/nginx/logs:/var/log/nginx
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      grafana:
+        condition: service_started
+    networks:
+      - dev
 
 volumes:
   postgres_data:
+  loki_data:
+  grafana_data:

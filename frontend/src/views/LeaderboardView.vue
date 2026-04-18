@@ -15,6 +15,26 @@ const rows = ref<Row[]>([])
 const err = ref('')
 const { ensureConnected } = useSocket()
 
+function medalRowClass(rank: number) {
+  if (rank === 1) {
+    return 'border-amber-400/50 bg-gradient-to-r from-amber-950/55 via-slate-900/70 to-amber-900/40 shadow-amber-900/20 ring-1 ring-amber-400/35'
+  }
+  if (rank === 2) {
+    return 'border-slate-300/40 bg-gradient-to-r from-slate-700/50 via-slate-900/65 to-slate-600/40 shadow-slate-900/25 ring-1 ring-slate-300/30'
+  }
+  if (rank === 3) {
+    return 'border-orange-700/45 bg-gradient-to-r from-orange-950/50 via-amber-950/35 to-slate-900/60 shadow-orange-950/20 ring-1 ring-orange-600/30'
+  }
+  return 'border-white/10 bg-slate-900/50 shadow-black/20'
+}
+
+function rankBadgeClass(rank: number) {
+  if (rank === 1) return 'bg-gradient-to-br from-amber-300 to-amber-600 text-slate-950 ring-amber-200/40'
+  if (rank === 2) return 'bg-gradient-to-br from-slate-200 to-slate-500 text-slate-950 ring-slate-200/40'
+  if (rank === 3) return 'bg-gradient-to-br from-orange-300 to-amber-800 text-slate-950 ring-orange-300/35'
+  return 'bg-gradient-to-br from-slate-800 to-slate-900 text-cyan-400 ring-white/10'
+}
+
 async function load() {
   try {
     const { data } = await api.get<Row[]>('/api/scores/leaderboard')
@@ -46,27 +66,29 @@ onUnmounted(() => {
       <p class="mt-2 text-sm text-slate-500">Обновляется по WebSocket — как CI на зелёном пайплайне.</p>
     </div>
     <p v-if="err" class="mb-4 text-center font-mono text-sm text-rose-400">{{ err }}</p>
-    <TransitionGroup name="lb" tag="ul" class="relative mx-auto max-w-2xl space-y-3">
+    <TransitionGroup name="lb" tag="ul" class="relative mx-auto max-w-3xl space-y-3 px-0 sm:px-0">
       <li
         v-for="r in rows"
         :key="r.team_id"
-        class="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-900/50 px-5 py-4 shadow-lg shadow-black/20 backdrop-blur-sm transition hover:border-cyan-500/25 hover:shadow-cyan-900/20"
+        class="group flex flex-col gap-3 rounded-2xl border px-4 py-4 shadow-lg backdrop-blur-sm transition hover:border-cyan-500/25 hover:shadow-cyan-900/20 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
+        :class="medalRowClass(r.rank)"
       >
-        <div class="flex min-w-0 items-center gap-4">
+        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
           <span
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 font-mono text-lg font-bold text-cyan-400 ring-1 ring-white/10"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-mono text-sm font-bold ring-2 sm:h-11 sm:w-11 sm:text-lg"
+            :class="rankBadgeClass(r.rank)"
           >
             #{{ r.rank }}
           </span>
           <RouterLink
             :to="`/teams/${r.team_id}`"
-            class="truncate font-semibold text-slate-200 underline decoration-cyan-500/0 decoration-2 underline-offset-4 transition group-hover:decoration-cyan-400/80"
+            class="min-w-0 flex-1 truncate font-semibold text-slate-100 underline decoration-cyan-500/0 decoration-2 underline-offset-4 transition group-hover:decoration-cyan-400/80"
           >
             {{ r.team_name }}
           </RouterLink>
         </div>
         <span
-          class="shrink-0 rounded-lg bg-black/40 px-3 py-1.5 font-mono text-lg tabular-nums text-emerald-400 ring-1 ring-emerald-500/20"
+          class="shrink-0 self-end rounded-lg bg-black/40 px-3 py-1.5 font-mono text-base tabular-nums text-emerald-400 ring-1 ring-emerald-500/25 sm:self-auto sm:text-lg"
         >
           {{ r.total_percent.toFixed(2) }}%
         </span>

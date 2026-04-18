@@ -36,6 +36,18 @@ class UserRoleUpdate(BaseModel):
     role: UserRole
 
 
+class UserAdminCreate(BaseModel):
+    """Создание пользователя администратором (без регистрации на сайте)."""
+
+    email: EmailStr
+    username: str = Field(..., min_length=2, max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
+    role: UserRole = Field(
+        default=UserRole.EXPERT,
+        description="Роль нового аккаунта (по умолчанию — эксперт жюри)",
+    )
+
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
@@ -50,3 +62,4 @@ class UserRead(BaseModel):
     role: UserRole
     is_active: bool
     is_blocked: bool
+    avatar_url: str | None = None
