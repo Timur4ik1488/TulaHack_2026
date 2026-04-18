@@ -59,7 +59,7 @@ watch(teamIdNum, async () => {
 <template>
   <div class="mx-auto max-w-4xl">
     <div class="mb-8 text-center">
-      <p class="mb-2 font-mono text-xs text-rose-400/80">// weighted breakdown</p>
+      <p class="mb-2 font-mono text-xs text-rose-400/80">// разбор баллов по критериям</p>
       <h1 class="bg-gradient-to-r from-rose-200 via-amber-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
         Оценки команды
       </h1>
@@ -116,7 +116,7 @@ watch(teamIdNum, async () => {
           class="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-cyan-500/15 blur-3xl"
         />
         <div class="relative flex flex-col items-center text-center">
-          <p class="font-mono text-xs uppercase tracking-widest text-slate-500">match score</p>
+          <p class="font-mono text-xs uppercase tracking-widest text-slate-500">итоговый балл</p>
           <h2 class="mt-2 max-w-full truncate text-2xl font-bold text-white">{{ data.team_name }}</h2>
           <div
             class="mt-6 flex h-36 w-36 items-center justify-center rounded-full border-4 border-rose-400/40 bg-gradient-to-br from-rose-500/30 to-amber-500/20 font-mono text-4xl font-bold text-white shadow-inner"

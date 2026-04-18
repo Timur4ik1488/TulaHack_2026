@@ -29,6 +29,7 @@ const values = reactive<Record<number, number>>({})
 const busy = ref(false)
 const msg = ref('')
 const teamErr = ref('')
+const sympathyTotal = ref<number | null>(null)
 
 const totalWeight = computed(() => criteria.value.reduce((s, c) => s + (c.weight || 0), 0))
 
@@ -53,8 +54,20 @@ async function loadCriteria() {
   }
 }
 
+async function loadSympathyTotal() {
+  sympathyTotal.value = null
+  try {
+    const { data } = await api.get<{ team_id: number; total: number }>(
+      `/api/sympathy/team/${teamId.value}/total`,
+    )
+    sympathyTotal.value = data.total
+  } catch {
+    sympathyTotal.value = null
+  }
+}
+
 async function loadAll() {
-  await Promise.all([loadTeam(), loadCriteria()])
+  await Promise.all([loadTeam(), loadCriteria(), loadSympathyTotal()])
 }
 
 async function saveCriterion(criterionId: number) {
@@ -79,7 +92,7 @@ async function submitAll() {
   msg.value = ''
   try {
     await api.post(`/api/scores/${teamId.value}/submit`)
-    msg.value = 'Все оценки по команде зафиксированы (is_final).'
+    msg.value = 'Все оценки по команде зафиксированы.'
   } catch {
     msg.value = 'Ошибка фиксации — проверьте, что по каждому критерию есть черновик.'
   } finally {
@@ -94,7 +107,7 @@ watch(teamId, loadAll)
 <template>
   <div class="mx-auto max-w-3xl space-y-8">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// jury · score form</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">// жюри · форма оценки</p>
       <h1
         class="bg-gradient-to-r from-cyan-200 via-white to-rose-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
       >
@@ -131,7 +144,7 @@ watch(teamId, loadAll)
       </div>
       <div class="space-y-3 p-5">
         <p v-if="team.description" class="text-sm leading-relaxed text-slate-400">{{ team.description }}</p>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <RouterLink
             :to="`/teams/${team.id}`"
             class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 font-mono text-xs text-cyan-200 transition hover:bg-cyan-500/20"
@@ -147,14 +160,16 @@ watch(teamId, loadAll)
           >
             репозиторий ↗
           </a>
-          <RouterLink
-            :to="{ path: '/jury/swipe', query: { team: String(team.id) } }"
-            class="rounded-full border border-rose-500/25 bg-rose-500/10 px-3 py-1.5 font-mono text-xs text-rose-200 transition hover:bg-rose-500/20"
+          <span
+            v-if="sympathyTotal !== null"
+            class="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 font-mono text-xs text-violet-200"
+            title="Сумма зрительских симпатий (±1), не входит в баллы жюри"
           >
-            свайп-режим
-          </RouterLink>
+            Симпатии
+            <span class="ml-1 text-violet-100">{{ sympathyTotal > 0 ? '+' : '' }}{{ sympathyTotal }}</span>
+          </span>
         </div>
-        <p v-if="team.case_number != null" class="font-mono text-[11px] text-slate-600">case #{{ team.case_number }}</p>
+        <p v-if="team.case_number != null" class="font-mono text-[11px] text-slate-600">кейс №{{ team.case_number }}</p>
       </div>
     </section>
 
@@ -221,7 +236,7 @@ watch(teamId, loadAll)
         :disabled="busy || !criteria.length"
         @click="submitAll"
       >
-        зафиксировать команду (submit)
+        зафиксировать команду
       </button>
     </div>
   </div>

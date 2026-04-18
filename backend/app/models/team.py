@@ -25,6 +25,7 @@ class Team(Base):
     team_members: Mapped[list["TeamMember"]] = relationship(
         back_populates="team", cascade="all, delete-orphan"
     )
+    sympathy_votes: Mapped[list["SympathyVote"]] = relationship(back_populates="team")
 
     @staticmethod
     def generate_invite_code() -> str:

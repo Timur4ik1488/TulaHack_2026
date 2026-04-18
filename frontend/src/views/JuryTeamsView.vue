@@ -43,14 +43,14 @@ function progressForTeam(teamId: number) {
 <template>
   <div class="mx-auto max-w-6xl">
     <div class="mb-10 text-center">
-      <p class="mb-2 font-mono text-xs text-rose-400/80">// jury deck</p>
+      <p class="mb-2 font-mono text-xs text-rose-400/80">// жюри · основной поток оценки</p>
       <h1
         class="bg-gradient-to-r from-rose-200 via-amber-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl"
       >
         Лента команд
       </h1>
       <p class="mx-auto mt-3 max-w-lg text-sm text-slate-500">
-        Карточки в духе свайпа: фото, короткий статус по вашим черновикам и кнопка «оценить».
+        Здесь жюри выставляет официальные баллы по критериям. Зрительские симпатии (+1/−1) — в разделе «Симпатии».
       </p>
     </div>
 

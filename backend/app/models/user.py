@@ -39,3 +39,4 @@ class User(Base):
     scores: Mapped[list["Score"]] = relationship(back_populates="expert")
     messages: Mapped[list["Message"]] = relationship(back_populates="author")
     team_memberships: Mapped[list["TeamMember"]] = relationship(back_populates="user")
+    sympathy_votes_cast: Mapped[list["SympathyVote"]] = relationship(back_populates="voter")

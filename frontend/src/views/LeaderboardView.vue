@@ -40,7 +40,7 @@ async function load() {
     const { data } = await api.get<Row[]>('/api/scores/leaderboard')
     rows.value = data
   } catch {
-    err.value = "fetch('/api/scores/leaderboard') failed"
+    err.value = 'Не удалось загрузить лидерборд'
   }
 }
 
@@ -61,9 +61,9 @@ onUnmounted(() => {
 <template>
   <div>
     <div class="mb-8 text-center">
-      <p class="mb-2 font-mono text-xs text-emerald-500/80">// live: rating_updated</p>
+      <p class="mb-2 font-mono text-xs text-emerald-500/80">// обновление рейтинга в реальном времени</p>
       <h1 class="text-3xl font-bold tracking-tight text-slate-100">Лидерборд команд</h1>
-      <p class="mt-2 text-sm text-slate-500">Обновляется по WebSocket — как CI на зелёном пайплайне.</p>
+      <p class="mt-2 text-sm text-slate-500">Обновляется по WebSocket при изменении оценок.</p>
     </div>
     <p v-if="err" class="mb-4 text-center font-mono text-sm text-rose-400">{{ err }}</p>
     <TransitionGroup name="lb" tag="ul" class="relative mx-auto max-w-3xl space-y-3 px-0 sm:px-0">

@@ -38,7 +38,7 @@ onMounted(async () => {
     const { data } = await api.get<Row[]>('/api/scores/podium', { params: { limit: 3 } })
     rows.value = data
   } catch {
-    err.value = '// fetch podium failed'
+    err.value = 'Не удалось загрузить подиум'
   }
 })
 </script>
@@ -46,7 +46,7 @@ onMounted(async () => {
 <template>
   <div class="px-1 sm:px-0">
     <div class="mb-10 text-center">
-      <p class="mb-2 font-mono text-xs text-amber-400/80">// top(limit:3)</p>
+      <p class="mb-2 font-mono text-xs text-amber-400/80">// топ-3</p>
       <h1 class="text-3xl font-bold text-slate-100 sm:text-4xl">Топ-3 команд</h1>
       <p class="mx-auto mt-3 max-w-md text-sm text-slate-500">
         Подиум по итоговому взвешенному % — клик по названию открывает публичную карточку команды.

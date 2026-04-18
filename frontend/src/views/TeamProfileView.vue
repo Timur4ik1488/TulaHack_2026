@@ -49,6 +49,14 @@ let inviteCopyTimer: ReturnType<typeof setTimeout> | null = null
 const isStaff = computed(() => auth.role === 'admin' || auth.role === 'expert')
 const isParticipant = computed(() => auth.role === 'participant')
 
+function accountRoleLabel(role: string | undefined) {
+  if (!role) return ''
+  if (role === 'admin') return 'admin'
+  if (role === 'expert') return 'Жюри'
+  if (role === 'participant') return 'Участник'
+  return role
+}
+
 const teamId = computed(() => summary.value?.team.id ?? NaN)
 const isCaptain = computed(() => summary.value?.my_role === 'captain')
 
@@ -156,9 +164,9 @@ async function saveBrief() {
       screenshots_urls: urls,
     })
     await load()
-    photoMsg.value = '// brief saved'
+    photoMsg.value = 'Материалы для жюри сохранены'
   } catch {
-    photoMsg.value = '// err: PATCH brief'
+    photoMsg.value = 'Не удалось сохранить материалы'
   } finally {
     busy.value = false
   }
@@ -221,7 +229,7 @@ onUnmounted(() => {
     <!-- Staff: админ / жюри — без обязательной команды -->
     <template v-if="isStaff && auth.user">
       <div class="mb-8 text-center">
-        <p class="mb-2 font-mono text-xs text-rose-400/80">// account</p>
+        <p class="mb-2 font-mono text-xs text-rose-400/80">// аккаунт</p>
         <h1
           class="bg-gradient-to-r from-rose-200 via-amber-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
         >
@@ -257,7 +265,7 @@ onUnmounted(() => {
                 : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-200'
             "
           >
-            {{ auth.user.role }}
+            {{ accountRoleLabel(auth.user.role) }}
           </span>
           <div class="mt-4">
             <p class="font-mono text-[10px] uppercase tracking-wider text-slate-500">аватар</p>
@@ -274,17 +282,17 @@ onUnmounted(() => {
 
         <div class="grid gap-3 border-t border-white/5 px-6 pb-8 sm:grid-cols-2">
           <RouterLink
-            to="/jury/swipe"
-            class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-rose-400/35 hover:bg-rose-500/10"
+            to="/sympathy"
+            class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-violet-400/35 hover:bg-violet-500/10"
           >
-            <span class="text-sm font-medium text-slate-100">Свайп</span>
-            <span class="font-mono text-xs text-rose-300">→</span>
+            <span class="text-sm font-medium text-slate-100">Симпатии</span>
+            <span class="font-mono text-xs text-violet-300">→</span>
           </RouterLink>
           <RouterLink
             to="/jury/teams"
             class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-cyan-400/35 hover:bg-cyan-500/10"
           >
-            <span class="text-sm font-medium text-slate-100">Команды жюри</span>
+            <span class="text-sm font-medium text-slate-100">Команды для оценки</span>
             <span class="font-mono text-xs text-cyan-300">→</span>
           </RouterLink>
           <RouterLink
@@ -313,7 +321,7 @@ onUnmounted(() => {
               to="/admin/teams"
               class="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-center text-sm font-medium text-amber-100 transition hover:bg-amber-500/20"
             >
-              Админ: teams
+              Команды (админ)
             </RouterLink>
             <RouterLink
               to="/admin/criteria"
@@ -325,7 +333,7 @@ onUnmounted(() => {
               to="/admin/users"
               class="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-center text-sm font-medium text-amber-100 transition hover:bg-amber-500/20"
             >
-              Users
+              Пользователи
             </RouterLink>
             <RouterLink
               to="/timer"
@@ -371,7 +379,7 @@ onUnmounted(() => {
       </div>
 
       <div class="mb-8 text-center">
-        <p class="mb-2 font-mono text-xs text-cyan-500/80">// my team</p>
+        <p class="mb-2 font-mono text-xs text-cyan-500/80">// моя команда</p>
         <h1
           class="bg-gradient-to-r from-cyan-200 via-white to-emerald-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
         >

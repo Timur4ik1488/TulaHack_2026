@@ -3,6 +3,7 @@ from app.models.hackathon_timer import HackathonTimer
 from app.models.message import Message
 from app.models.score import Score
 from app.models.team import Team
+from app.models.sympathy_vote import SympathyDimension, SympathyVote
 from app.models.team_member import TeamMember, TeamMemberRole
 from app.models.user import User, UserRole
 
@@ -16,4 +17,6 @@ __all__ = [
     "Criterion",
     "Score",
     "Message",
+    "SympathyVote",
+    "SympathyDimension",
 ]

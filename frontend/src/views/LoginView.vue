@@ -17,10 +17,16 @@ async function submit() {
   busy.value = true
   try {
     await auth.login(email.value, password.value)
-    const redirect = (route.query.redirect as string) || '/leaderboard'
-    await router.replace(redirect)
+    const q = (route.query.redirect as string) || ''
+    if (q) {
+      await router.replace(q)
+    } else if (auth.role === 'admin') {
+      await router.replace('/admin')
+    } else {
+      await router.replace('/leaderboard')
+    }
   } catch {
-    error.value = '401 Unauthorized — проверь email и пароль'
+    error.value = 'Неверная почта или пароль'
   } finally {
     busy.value = false
   }
@@ -29,7 +35,7 @@ async function submit() {
 
 <template>
   <div class="mx-auto flex max-w-xl flex-col items-center pt-10">
-    <p class="mb-2 font-mono text-xs text-cyan-500/80">// remote: authenticate</p>
+    <p class="mb-2 font-mono text-xs text-cyan-500/80">// вход в аккаунт</p>
     <h1 class="mb-2 text-center text-3xl font-bold tracking-tight text-slate-100">
       Вход в <span class="text-cyan-400">Hack</span><span class="text-emerald-400">Swipe</span>
     </h1>
@@ -41,7 +47,7 @@ async function submit() {
     >
       <div class="space-y-5">
         <label class="block">
-          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">email</span>
+          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">почта</span>
           <input
             v-model="email"
             type="email"
@@ -51,7 +57,7 @@ async function submit() {
           />
         </label>
         <label class="block">
-          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">password</span>
+          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">пароль</span>
           <input
             v-model="password"
             type="password"
@@ -67,11 +73,11 @@ async function submit() {
           :disabled="busy"
         >
           <span v-if="busy" class="loading loading-spinner loading-sm" />
-          <span v-else>$ authenticate</span>
+          <span v-else>sign in</span>
         </button>
         <p class="pt-2 text-center font-mono text-xs text-slate-500">
           Нет аккаунта?
-          <RouterLink to="/register" class="text-cyan-400 underline-offset-2 hover:underline">register --team</RouterLink>
+          <RouterLink to="/register" class="text-cyan-400 underline-offset-2 hover:underline">register</RouterLink>
         </p>
       </div>
     </form>

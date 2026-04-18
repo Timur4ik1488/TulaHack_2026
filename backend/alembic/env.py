@@ -17,7 +17,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
-from app.models import Criterion, Message, Score, Team, User  # noqa: E402, F401
+from app.models import (  # noqa: E402, F401
+    Criterion,
+    Message,
+    Score,
+    SympathyVote,
+    Team,
+    TeamMember,
+    User,
+)
 
 config = context.config
 if config.config_file_name is not None:

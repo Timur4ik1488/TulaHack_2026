@@ -26,6 +26,13 @@ const createUsername = ref('')
 const createPassword = ref('')
 const createRole = ref<'expert' | 'participant' | 'admin'>('expert')
 
+function roleLabel(role: string) {
+  if (role === 'admin') return 'admin'
+  if (role === 'expert') return 'Жюри'
+  if (role === 'participant') return 'Участник'
+  return role
+}
+
 async function load() {
   const { data } = await api.get<UserRow[]>('/api/users/')
   users.value = data
@@ -96,7 +103,7 @@ onMounted(load)
 <template>
   <div class="mx-auto max-w-5xl space-y-8">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-amber-400/80">// admin · users</p>
+      <p class="mb-2 font-mono text-xs text-amber-400/80">admin · пользователи</p>
       <h1
         class="bg-gradient-to-r from-amber-200 via-slate-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
       >
@@ -115,7 +122,7 @@ onMounted(load)
     <section
       class="mx-auto max-w-xl rounded-3xl border border-cyan-500/20 bg-slate-900/50 p-6 shadow-xl backdrop-blur-md sm:p-8"
     >
-      <p class="mb-1 font-mono text-xs text-cyan-500/80">// create user</p>
+      <p class="mb-1 font-mono text-xs text-cyan-500/80">// создать пользователя</p>
       <h2 class="text-lg font-semibold text-slate-100">Новый пользователь</h2>
       <p class="mt-1 text-xs text-slate-500">Пароль не короче 8 символов. Роль по умолчанию — expert.</p>
       <form class="mt-5 space-y-4" @submit.prevent="createUser">
@@ -127,7 +134,7 @@ onMounted(load)
             required
             autocomplete="off"
             class="input input-bordered w-full border-white/10 bg-black/35 font-mono text-sm text-slate-100"
-            placeholder="expert@example.com"
+            placeholder="zhuri@example.com"
           />
         </div>
         <div>
@@ -139,7 +146,7 @@ onMounted(load)
             minlength="2"
             autocomplete="off"
             class="input input-bordered w-full border-white/10 bg-black/35 font-mono text-sm text-slate-100"
-            placeholder="jury_member"
+            placeholder="имя_на_сайте"
           />
         </div>
         <div>
@@ -160,8 +167,8 @@ onMounted(load)
             v-model="createRole"
             class="select select-bordered w-full border-white/10 bg-black/35 font-mono text-sm text-slate-100"
           >
-            <option value="expert">expert (жюри)</option>
-            <option value="participant">participant</option>
+            <option value="expert">Жюри (expert)</option>
+            <option value="participant">Участник</option>
             <option value="admin">admin</option>
           </select>
         </div>
@@ -219,7 +226,7 @@ onMounted(load)
                     : 'border-slate-500/40 bg-slate-500/10 text-slate-300'
               "
             >
-              {{ u.role }}
+              {{ roleLabel(u.role) }}
             </span>
           </div>
         </div>
@@ -233,14 +240,14 @@ onMounted(load)
               class="rounded-full border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-slate-300 hover:border-emerald-500/30"
               @click="setRole(u.id, 'participant')"
             >
-              participant
+              Участник
             </button>
             <button
               type="button"
               class="rounded-full border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-cyan-300 hover:border-cyan-500/30"
               @click="setRole(u.id, 'expert')"
             >
-              expert
+              Жюри
             </button>
             <button
               type="button"

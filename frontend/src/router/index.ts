@@ -36,10 +36,10 @@ const router = createRouter({
       meta: { public: true },
     },
     {
-      path: '/jury/swipe',
-      name: 'jury-swipe',
-      component: () => import('../views/JurySwipeView.vue'),
-      meta: { roles: ['expert', 'admin'] },
+      path: '/sympathy',
+      name: 'sympathy-swipe',
+      component: () => import('../views/SympathySwipeView.vue'),
+      meta: { roles: ['participant', 'admin', 'expert'] },
     },
     {
       path: '/jury/score/:id',
@@ -70,6 +70,12 @@ const router = createRouter({
       name: 'team-chat',
       component: () => import('../views/TeamChatView.vue'),
       meta: { roles: ['participant', 'admin', 'expert'] },
+    },
+    {
+      path: '/admin',
+      name: 'admin-dashboard',
+      component: () => import('../views/AdminDashboardView.vue'),
+      meta: { roles: ['admin'] },
     },
     {
       path: '/admin/teams',

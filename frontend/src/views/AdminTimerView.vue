@@ -88,7 +88,7 @@ onUnmounted(() => {
   <div class="mx-auto max-w-lg space-y-8 px-1 sm:px-0">
     <div class="text-center">
       <p class="mb-2 font-mono text-xs text-cyan-500/80">
-        {{ auth.role === 'admin' ? '// admin · server timer' : '// server timer (read-only)' }}
+        {{ auth.role === 'admin' ? 'admin · таймер на сервере' : 'таймер на сервере (только просмотр)' }}
       </p>
       <h1
         class="bg-gradient-to-r from-cyan-200 to-emerald-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"

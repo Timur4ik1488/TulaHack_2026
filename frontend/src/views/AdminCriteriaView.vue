@@ -70,7 +70,7 @@ onMounted(load)
 <template>
   <div class="mx-auto max-w-4xl space-y-10">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// admin · criteria</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">admin · критерии</p>
       <h1
         class="bg-gradient-to-r from-cyan-200 via-fuchsia-200 to-amber-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl"
       >
@@ -117,7 +117,7 @@ onMounted(load)
       </div>
       <div class="grid gap-4 p-6 md:grid-cols-12 md:items-end">
         <label class="block md:col-span-5">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">name</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">название</span>
           <input
             v-model="form.name"
             class="input w-full border-white/10 bg-black/40 text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/40"
@@ -125,7 +125,7 @@ onMounted(load)
           />
         </label>
         <label class="block md:col-span-3">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">weight %</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">вес, %</span>
           <input
             v-model.number="form.weight"
             type="number"
@@ -135,7 +135,7 @@ onMounted(load)
           />
         </label>
         <label class="block md:col-span-2">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">max</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">макс. балл</span>
           <input
             v-model.number="form.max_score"
             type="number"

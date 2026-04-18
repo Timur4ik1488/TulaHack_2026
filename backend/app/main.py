@@ -8,7 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from socketio import ASGIApp
 from sqlalchemy import select
 
-from app.api.routes import auth, chat, criteria, scores, teams, timer, users
+from app.api.routes import auth, chat, criteria, scores, sympathy, teams, timer, users
 from app.core.auth import hash_password
 from app.core.config import settings
 from app.core.socket import sio
@@ -54,10 +54,18 @@ fastapi_app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@fastapi_app.get("/health", include_in_schema=False)
+async def health() -> dict[str, str]:
+    """Лёгкий liveness для Docker healthcheck (без обращения к БД)."""
+    return {"status": "ok"}
+
+
 fastapi_app.include_router(auth.router, prefix="/api/auth")
 fastapi_app.include_router(teams.router, prefix="/api/teams")
 fastapi_app.include_router(criteria.router, prefix="/api/criteria")
 fastapi_app.include_router(scores.router, prefix="/api/scores")
+fastapi_app.include_router(sympathy.router, prefix="/api/sympathy")
 fastapi_app.include_router(users.router, prefix="/api/users")
 fastapi_app.include_router(chat.router, prefix="/api/chat")
 fastapi_app.include_router(timer.router, prefix="/api/timer")

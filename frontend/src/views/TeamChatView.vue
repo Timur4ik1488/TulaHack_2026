@@ -105,7 +105,7 @@ function rolePillClass(label: string, mine: boolean) {
 <template>
   <div class="mx-auto flex max-w-3xl flex-col gap-6">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-cyan-500/80">// team chat</p>
+      <p class="mb-2 font-mono text-xs text-cyan-500/80">// чат команды</p>
       <h1
         class="bg-gradient-to-r from-cyan-200 via-white to-rose-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent"
       >
@@ -157,9 +157,9 @@ function rolePillClass(label: string, mine: boolean) {
         <div
           class="border-b border-white/5 bg-gradient-to-r from-cyan-500/10 via-transparent to-rose-500/10 px-4 py-3"
         >
-          <p class="font-mono text-[10px] uppercase tracking-wider text-slate-500">active thread</p>
+          <p class="font-mono text-[10px] uppercase tracking-wider text-slate-500">активный чат</p>
           <p class="truncate text-sm font-semibold text-slate-100">
-            team #{{ teamIdNum }}
+            команда №{{ teamIdNum }}
           </p>
         </div>
         <div class="flex-1 space-y-3 overflow-y-auto px-3 py-4">
@@ -213,7 +213,7 @@ function rolePillClass(label: string, mine: boolean) {
               class="btn join-item border-0 bg-gradient-to-r from-rose-500 to-amber-500 font-mono text-xs text-white hover:opacity-95"
               @click="send"
             >
-              send
+              Отправить
             </button>
           </div>
         </div>

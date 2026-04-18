@@ -74,7 +74,7 @@ onMounted(load)
 <template>
   <div class="mx-auto max-w-5xl space-y-10">
     <div class="text-center">
-      <p class="mb-2 font-mono text-xs text-amber-400/80">// admin · teams</p>
+      <p class="mb-2 font-mono text-xs text-amber-400/80">admin · команды</p>
       <h1
         class="bg-gradient-to-r from-amber-200 via-rose-100 to-cyan-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent md:text-4xl"
       >
@@ -100,7 +100,7 @@ onMounted(load)
       </div>
       <div class="grid gap-4 p-6 md:grid-cols-2">
         <label class="block md:col-span-2">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">name</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">название</span>
           <input
             v-model="form.name"
             class="input w-full border-white/10 bg-black/40 font-sans text-slate-100 placeholder:text-slate-600 focus:border-amber-500/40"
@@ -108,7 +108,7 @@ onMounted(load)
           />
         </label>
         <label class="block md:col-span-2">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">contact</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">контакт</span>
           <input
             v-model="form.contact"
             class="input w-full border-white/10 bg-black/40 font-sans text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/40"
@@ -116,7 +116,7 @@ onMounted(load)
           />
         </label>
         <label class="block md:col-span-2">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">members (текст)</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">состав (текстом)</span>
           <textarea
             v-model="form.members"
             class="textarea min-h-[88px] w-full border-white/10 bg-black/40 font-sans text-sm text-slate-100 placeholder:text-slate-600 focus:border-rose-500/35"
@@ -124,7 +124,7 @@ onMounted(load)
           />
         </label>
         <label class="block md:col-span-2">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">description</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">описание</span>
           <textarea
             v-model="form.description"
             class="textarea min-h-[72px] w-full border-white/10 bg-black/40 font-sans text-sm text-slate-100 placeholder:text-slate-600"
@@ -132,7 +132,7 @@ onMounted(load)
           />
         </label>
         <label class="block">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">case #</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">номер кейса</span>
           <input
             v-model="form.case_number"
             type="number"
@@ -141,7 +141,7 @@ onMounted(load)
           />
         </label>
         <label class="block">
-          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">photo_url</span>
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-slate-500">URL фото</span>
           <input
             v-model="form.photo_url"
             class="input w-full border-white/10 bg-black/40 font-mono text-xs text-cyan-100/90 placeholder:text-slate-600"

@@ -46,7 +46,11 @@ async function submit() {
         invite_code: inviteCode.value.trim(),
       })
     }
-    await router.replace('/team/profile')
+    if (auth.role === 'admin') {
+      await router.replace('/admin')
+    } else {
+      await router.replace('/team/profile')
+    }
   } catch (e: unknown) {
     const ax = e as { response?: { data?: { detail?: string | unknown } } }
     const d = ax.response?.data?.detail
@@ -64,7 +68,7 @@ async function submit() {
 
 <template>
   <div class="mx-auto flex max-w-xl flex-col items-center pt-10">
-    <p class="mb-2 font-mono text-xs text-cyan-500/80">// remote: register + team</p>
+    <p class="mb-2 font-mono text-xs text-cyan-500/80">// регистрация и команда</p>
     <h1 class="mb-2 text-center text-3xl font-bold tracking-tight text-slate-100">
       Регистрация · <span class="text-cyan-400">{{ title }}</span>
     </h1>
@@ -79,7 +83,7 @@ async function submit() {
         :class="mode === 'create' ? 'bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-500/40' : 'text-slate-500'"
         @click="mode = 'create'"
       >
-        new_team
+        новая команда
       </button>
       <button
         type="button"
@@ -87,7 +91,7 @@ async function submit() {
         :class="mode === 'join' ? 'bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-500/40' : 'text-slate-500'"
         @click="mode = 'join'"
       >
-        invite_code
+        код приглашения
       </button>
     </div>
 
@@ -97,7 +101,7 @@ async function submit() {
     >
       <div class="space-y-4">
         <label class="block">
-          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">email</span>
+          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">почта</span>
           <input
             v-model="email"
             type="email"
@@ -107,7 +111,7 @@ async function submit() {
           />
         </label>
         <label class="block">
-          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">username</span>
+          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">имя пользователя</span>
           <input
             v-model="username"
             type="text"
@@ -118,7 +122,7 @@ async function submit() {
           />
         </label>
         <label class="block">
-          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">password</span>
+          <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">пароль</span>
           <input
             v-model="password"
             type="password"
@@ -131,7 +135,7 @@ async function submit() {
 
         <template v-if="mode === 'join'">
           <label class="block">
-            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">invite_code</span>
+            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">код приглашения</span>
             <input
               v-model="inviteCode"
               type="text"
@@ -144,7 +148,7 @@ async function submit() {
 
         <template v-else>
           <label class="block">
-            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">team name</span>
+            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">название команды</span>
             <input
               v-model="teamName"
               type="text"
@@ -154,7 +158,7 @@ async function submit() {
             />
           </label>
           <label class="block">
-            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">contact</span>
+            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">контакт команды</span>
             <input
               v-model="contact"
               type="text"
@@ -165,7 +169,7 @@ async function submit() {
             />
           </label>
           <label class="block">
-            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">description</span>
+            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">описание</span>
             <textarea
               v-model="description"
               rows="3"
@@ -174,7 +178,7 @@ async function submit() {
             />
           </label>
           <label class="block">
-            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">repo_url</span>
+            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">ссылка на репозиторий</span>
             <input
               v-model="repoUrl"
               type="url"
@@ -183,7 +187,7 @@ async function submit() {
             />
           </label>
           <label class="block">
-            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">roster_line</span>
+            <span class="mb-1.5 block font-mono text-xs uppercase tracking-wider text-slate-500">состав одной строкой</span>
             <input
               v-model="rosterLine"
               type="text"
@@ -200,7 +204,7 @@ async function submit() {
           :disabled="busy"
         >
           <span v-if="busy" class="loading loading-spinner loading-sm" />
-          <span v-else>$ register --with-team</span>
+          <span v-else>register</span>
         </button>
       </div>
     </form>

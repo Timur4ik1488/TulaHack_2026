@@ -93,7 +93,7 @@ watch(id, async () => {
       <p v-if="team.description" class="whitespace-pre-wrap leading-relaxed text-slate-400">{{ team.description }}</p>
 
       <section v-if="sortedMembers.length" class="border-t border-white/10 pt-8">
-        <p class="mb-4 font-mono text-xs uppercase tracking-widest text-cyan-500/80">// roster</p>
+        <p class="mb-4 font-mono text-xs uppercase tracking-widest text-cyan-500/80">// состав</p>
         <h2 class="mb-4 text-lg font-semibold text-slate-100">Участники</h2>
         <ul class="grid gap-3 sm:grid-cols-2">
           <li
