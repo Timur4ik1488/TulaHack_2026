@@ -11,6 +11,15 @@ const route = useRoute()
 const hackathonEnded = ref(false)
 const teamNavEl = ref<HTMLDetailsElement | null>(null)
 const adminNavEl = ref<HTMLDetailsElement | null>(null)
+const mobileMenuOpen = ref(false)
+const mobileTeamOpen = ref(false)
+const mobileAdminOpen = ref(false)
+
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+  mobileTeamOpen.value = false
+  mobileAdminOpen.value = false
+}
 const { ensureConnected } = useSocket()
 const tgBotUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'HackSwipeBot'
 
@@ -144,12 +153,13 @@ async function onLogout() {
       class="sticky top-0 z-50 border-b border-cyan-500/10 bg-slate-950/90 backdrop-blur-md"
     >
       <div
-        class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2.5 sm:px-4 md:px-5"
+        class="mx-auto flex max-w-7xl items-center px-3 py-2.5 sm:px-4 md:px-5"
         style="
           padding-left: max(0.75rem, env(safe-area-inset-left));
           padding-right: max(0.75rem, env(safe-area-inset-right));
         "
       >
+        <!-- Логотип -->
         <RouterLink
           :to="logoTo"
           class="group flex shrink-0 items-center gap-2 font-mono text-base font-bold tracking-tight text-slate-100 sm:text-lg"
@@ -163,8 +173,9 @@ async function onLogout() {
           </span>
         </RouterLink>
 
+        <!-- Десктоп навигация (скрыта на мобилке) -->
         <nav
-          class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-1 gap-y-1 sm:gap-x-1.5"
+          class="ml-auto hidden min-w-0 flex-1 flex-wrap items-center justify-end gap-x-1 gap-y-1 sm:flex sm:gap-x-1.5"
         >
           <RouterLink
             v-if="auth.role === 'admin'"
@@ -288,7 +299,167 @@ async function onLogout() {
             <span class="hidden sm:inline">sign out — </span>@{{ auth.user.username }}
           </button>
         </nav>
+
+        <!-- Мобильный правый блок: оценка жюри (если admin) + бургер -->
+        <div class="ml-auto flex items-center gap-2 sm:hidden">
+          <RouterLink
+            v-if="auth.role === 'admin'"
+            to="/jury/teams"
+            class="shrink-0 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-white shadow-md shadow-amber-900/30 ring-1 ring-amber-300/40"
+            active-class="!ring-amber-200 !brightness-110"
+            @click="closeMobileMenu"
+          >
+            Оценка жюри
+          </RouterLink>
+
+          <!-- Бургер кнопка -->
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-300"
+            :aria-expanded="mobileMenuOpen"
+            aria-label="Меню"
+            @click="mobileMenuOpen = !mobileMenuOpen"
+          >
+            <svg v-if="!mobileMenuOpen" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      <!-- Мобильное выпадающее меню -->
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-2"
+      >
+        <div
+          v-if="mobileMenuOpen"
+          class="border-t border-white/5 bg-slate-950/98 px-3 pb-4 pt-2 sm:hidden"
+          style="padding-left: max(0.75rem, env(safe-area-inset-left)); padding-right: max(0.75rem, env(safe-area-inset-right));"
+        >
+          <!-- Гость: sign in / register -->
+          <div v-if="navGuest.length" class="mb-2 flex flex-col gap-1">
+            <RouterLink
+              v-for="l in navGuest"
+              :key="l.to"
+              :to="l.to"
+              class="block rounded-xl px-3 py-2.5 font-mono text-sm text-slate-400 transition hover:bg-white/5 hover:text-cyan-300"
+              active-class="!bg-cyan-500/10 !text-cyan-200"
+              @click="closeMobileMenu"
+            >
+              {{ l.label }}
+            </RouterLink>
+          </div>
+
+          <!-- Основные ссылки -->
+          <div class="flex flex-col gap-0.5">
+            <RouterLink
+              v-for="l in navMain"
+              :key="l.to"
+              :to="l.to"
+              class="flex items-center rounded-xl px-3 py-2.5 font-mono text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-cyan-300"
+              active-class="!bg-cyan-500/10 !text-cyan-200"
+              @click="closeMobileMenu"
+            >
+              {{ l.label }}
+            </RouterLink>
+
+            <!-- Симпатии -->
+            <RouterLink
+              v-if="showSympathy"
+              to="/sympathy"
+              class="flex items-center rounded-xl px-3 py-2.5 font-mono text-sm font-medium text-violet-300/90 transition hover:bg-violet-500/10"
+              active-class="!bg-violet-500/15 !text-violet-200"
+              @click="closeMobileMenu"
+            >
+              Симпатии
+            </RouterLink>
+
+            <!-- TG уведомления -->
+            <button
+              v-if="auth.user"
+              type="button"
+              class="flex items-center rounded-xl px-3 py-2.5 font-mono text-sm text-sky-300/90 transition hover:bg-sky-500/10 text-left"
+              @click="openTelegramBind(); closeMobileMenu()"
+            >
+              TG уведомления
+            </button>
+          </div>
+
+          <!-- Команда — аккордеон -->
+          <div v-if="teamMenu.length" class="mt-1 border-t border-white/5 pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 font-mono text-sm text-slate-300 transition hover:bg-white/5"
+              @click="mobileTeamOpen = !mobileTeamOpen"
+            >
+              <span>Команда</span>
+              <span
+                class="text-[10px] text-slate-500 transition-transform duration-200"
+                :class="mobileTeamOpen ? 'rotate-180' : ''"
+              >▼</span>
+            </button>
+            <div v-if="mobileTeamOpen" class="ml-3 flex flex-col gap-0.5 border-l border-cyan-500/20 pl-3">
+              <RouterLink
+                v-for="t in teamMenu"
+                :key="t.to"
+                :to="t.to"
+                class="block rounded-lg px-2 py-2 font-mono text-sm text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
+                active-class="!text-cyan-200"
+                @click="closeMobileMenu"
+              >
+                {{ t.label }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <!-- Admin — аккордеон -->
+          <div v-if="adminMenu.length" class="mt-1 border-t border-amber-500/15 pt-1">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 font-mono text-sm text-amber-200/80 transition hover:bg-amber-500/10"
+              @click="mobileAdminOpen = !mobileAdminOpen"
+            >
+              <span>admin</span>
+              <span
+                class="text-[10px] text-amber-400/60 transition-transform duration-200"
+                :class="mobileAdminOpen ? 'rotate-180' : ''"
+              >▼</span>
+            </button>
+            <div v-if="mobileAdminOpen" class="ml-3 flex flex-col gap-0.5 border-l border-amber-500/25 pl-3">
+              <RouterLink
+                v-for="a in adminMenu"
+                :key="a.to"
+                :to="a.to"
+                class="block rounded-lg px-2 py-2 font-mono text-sm text-slate-400 transition hover:bg-amber-500/10 hover:text-amber-100"
+                active-class="!text-amber-100"
+                @click="closeMobileMenu"
+              >
+                {{ a.label }}
+              </RouterLink>
+            </div>
+          </div>
+
+          <!-- Sign out -->
+          <div v-if="auth.user" class="mt-1 border-t border-white/5 pt-2">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 font-mono text-sm text-rose-300/80 transition hover:bg-rose-500/10 hover:text-rose-200"
+              @click="onLogout(); closeMobileMenu()"
+            >
+              <span class="text-slate-500">@{{ auth.user.username }}</span>
+              <span class="ml-auto text-xs text-rose-400/70">выйти</span>
+            </button>
+          </div>
+        </div>
+      </Transition>
     </header>
 
     <div
